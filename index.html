@@ -4,11 +4,187 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smart Hub</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      opacity: 0.8;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .search-box input {
+      flex: 1;
+      padding: 14px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    .search-box button {
+      padding: 14px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+
+    .card {
+      background: white;
+      padding: 22px 15px;
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .card h3 {
+      margin: 5px 0;
+    }
+
+    .card p {
+      margin: 5px 0;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .ad-box {
+      margin-top: 20px;
+      background: white;
+      border: 1px dashed #bbb;
+      border-radius: 12px;
+      padding: 25px;
+      text-align: center;
+      color: #777;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #777;
+      font-size: 13px;
+    }
+  </style>
 </head>
+
 <body>
 
-  <h1>Smart Hub</h1>
-  <p>Welcome to Smart Hub</p>
+  <header>
+    <h1>Smart Hub</h1>
+    <p>Your simple all-in-one web hub</p>
+  </header>
+
+  <div class="container">
+
+    <div class="search-box">
+      <input type="text" id="urlInput" placeholder="Enter a website or search...">
+      <button onclick="openWebsite()">Go</button>
+    </div>
+
+    <div class="cards">
+
+      <div class="card" onclick="showMessage('Browser')">
+        <div class="icon">🌐</div>
+        <h3>Browser</h3>
+        <p>Open websites</p>
+      </div>
+
+      <div class="card" onclick="showMessage('Links')">
+        <div class="icon">🔗</div>
+        <h3>Links</h3>
+        <p>Manage your links</p>
+      </div>
+
+      <div class="card" onclick="showMessage('Pages')">
+        <div class="icon">📄</div>
+        <h3>Pages</h3>
+        <p>Your useful pages</p>
+      </div>
+
+      <div class="card" onclick="showMessage('Account')">
+        <div class="icon">👤</div>
+        <h3>Account</h3>
+        <p>User account</p>
+      </div>
+
+    </div>
+
+    <div class="ad-box">
+      Advertisement
+      <br>
+      <small>Monetag ad will be placed here later</small>
+    </div>
+
+  </div>
+
+  <footer>
+    © 2026 Smart Hub
+  </footer>
+
+  <script>
+    function openWebsite() {
+      let url = document.getElementById("urlInput").value.trim();
+
+      if (!url) {
+        alert("Please enter a website or search.");
+        return;
+      }
+
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = "https://" + url;
+      }
+
+      window.open(url, "_blank");
+    }
+
+    function showMessage(name) {
+      alert(name + " section will be added soon.");
+    }
+  </script>
 
 </body>
 </html>
