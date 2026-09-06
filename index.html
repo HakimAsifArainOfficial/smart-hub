@@ -31,7 +31,7 @@
 
     header p {
       margin: 7px 0 0;
-      opacity: .8;
+      opacity: .85;
     }
 
     .container {
@@ -54,7 +54,8 @@
       margin-bottom: 15px;
     }
 
-    input, select {
+    input,
+    select {
       width: 100%;
       padding: 13px;
       border: 1px solid #d1d5db;
@@ -162,6 +163,7 @@
       border-radius: 12px;
       text-align: center;
       color: #6b7280;
+      margin-top: 15px;
     }
 
     .link-item {
@@ -211,7 +213,7 @@
       <div class="card" onclick="showScreen('browser')">
         <div class="icon">🌐</div>
         <h3>Browser</h3>
-        <p>Web & search</p>
+        <p>Search & open websites</p>
       </div>
 
       <div class="card" onclick="showScreen('services')">
@@ -246,13 +248,16 @@
   <!-- BROWSER -->
   <section id="browser" class="screen">
 
-    <button class="secondary back" onclick="showScreen('home')">← Home</button>
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
 
     <h2>🌐 Browser & Search</h2>
 
-    <input id="browserInput"
-           type="text"
-           placeholder="Enter URL or search">
+    <input
+      id="browserInput"
+      type="text"
+      placeholder="Search something or enter website URL">
 
     <br><br>
 
@@ -260,38 +265,30 @@
       <option value="google">Google Search</option>
       <option value="yandex">Yandex Search</option>
       <option value="duck">DuckDuckGo Search</option>
-      <option value="url">Open URL</option>
+      <option value="url">Open Website URL</option>
     </select>
 
     <br><br>
 
     <select id="timeFilter">
-      <option value="">Any time</option>
+      <option value="any">Any time</option>
       <option value="hour">Past hour</option>
       <option value="day">Past 24 hours</option>
       <option value="week">Past 7 days</option>
       <option value="month">Past month</option>
       <option value="year">Past year</option>
+      <option value="custom">Custom time</option>
     </select>
 
     <br><br>
 
-    <button class="primary" onclick="browserSearch()">Search / Open</button>
+    <button class="primary" onclick="browserSearch()">
+      Search / Open
+    </button>
 
-    <h3 class="section-title">Browsers</h3>
-
-    <div class="service-list">
-
-      <div class="service">
-        <span class="service-name">Chrome</span>
-        <button onclick="openUrl('https://www.google.com/chrome/')">Open</button>
-      </div>
-
-      <div class="service">
-        <span class="service-name">Yandex Browser</span>
-        <button onclick="openUrl('https://browser.yandex.com/')">Open</button>
-      </div>
-
+    <div class="empty">
+      You can use Google, Yandex or DuckDuckGo,
+      or enter any website URL.
     </div>
 
   </section>
@@ -300,50 +297,78 @@
   <!-- SERVICES -->
   <section id="services" class="screen">
 
-    <button class="secondary back" onclick="showScreen('home')">← Home</button>
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
 
     <h2>📱 Services</h2>
 
     <div class="service-list">
 
-      <div class="service"><span class="service-name">YouTube</span>
-        <button onclick="openUrl('https://www.youtube.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">YouTube</span>
+        <button onclick="openUrl('https://www.youtube.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">Blog</span>
-        <button onclick="openUrl('https://www.blogger.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">Blog</span>
+        <button onclick="openUrl('https://www.blogger.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">Dailymotion</span>
-        <button onclick="openUrl('https://www.dailymotion.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">Dailymotion</span>
+        <button onclick="openUrl('https://www.dailymotion.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">Tubidy</span>
-        <button onclick="openUrl('https://tubidy.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">Tubidy</span>
+        <button onclick="openUrl('https://tubidy.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">Facebook</span>
-        <button onclick="openUrl('https://www.facebook.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">Facebook</span>
+        <button onclick="openUrl('https://www.facebook.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">X (Twitter)</span>
-        <button onclick="openUrl('https://x.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">X (Twitter)</span>
+        <button onclick="openUrl('https://x.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">Instagram</span>
-        <button onclick="openUrl('https://www.instagram.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">Instagram</span>
+        <button onclick="openUrl('https://www.instagram.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">TikTok</span>
-        <button onclick="openUrl('https://www.tiktok.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">TikTok</span>
+        <button onclick="openUrl('https://www.tiktok.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">Reddit</span>
-        <button onclick="openUrl('https://www.reddit.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">Reddit</span>
+        <button onclick="openUrl('https://www.reddit.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">LinkedIn</span>
-        <button onclick="openUrl('https://www.linkedin.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">LinkedIn</span>
+        <button onclick="openUrl('https://www.linkedin.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">WordPress</span>
-        <button onclick="openUrl('https://wordpress.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">WordPress</span>
+        <button onclick="openUrl('https://wordpress.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">Medium</span>
-        <button onclick="openUrl('https://medium.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">Medium</span>
+        <button onclick="openUrl('https://medium.com/')">Open</button>
+      </div>
 
-      <div class="service"><span class="service-name">GitHub</span>
-        <button onclick="openUrl('https://github.com/')">Open</button></div>
+      <div class="service">
+        <span class="service-name">GitHub</span>
+        <button onclick="openUrl('https://github.com/')">Open</button>
+      </div>
 
     </div>
 
@@ -353,15 +378,18 @@
   <!-- SECURITY -->
   <section id="security" class="screen">
 
-    <button class="secondary back" onclick="showScreen('home')">← Home</button>
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
 
     <h2>🛡️ Website Safety</h2>
 
     <p>Enter a website URL and choose a security checker.</p>
 
-    <input id="securityUrl"
-           type="text"
-           placeholder="https://example.com">
+    <input
+      id="securityUrl"
+      type="text"
+      placeholder="https://example.com">
 
     <br><br>
 
@@ -374,12 +402,16 @@
 
       <div class="service">
         <span class="service-name">Google Safe Browsing</span>
-        <button onclick="openUrl('https://transparencyreport.google.com/safe-browsing/search')">Check</button>
+        <button onclick="openUrl('https://transparencyreport.google.com/safe-browsing/search')">
+          Check
+        </button>
       </div>
 
       <div class="service">
-        <span class="service-name">Yandex Safe Browsing</span>
-        <button onclick="openUrl('https://yandex.com/safety/')">Check</button>
+        <span class="service-name">Yandex Safety</span>
+        <button onclick="openUrl('https://yandex.com/safety/')">
+          Check
+        </button>
       </div>
 
       <div class="service">
@@ -405,19 +437,29 @@
   <!-- MY LINKS -->
   <section id="links" class="screen">
 
-    <button class="secondary back" onclick="showScreen('home')">← Home</button>
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
 
     <h2>🔗 My Links</h2>
 
-    <input id="linkName" type="text" placeholder="Link name">
+    <input
+      id="linkName"
+      type="text"
+      placeholder="Link name">
 
     <br><br>
 
-    <input id="linkUrl" type="text" placeholder="https://example.com">
+    <input
+      id="linkUrl"
+      type="text"
+      placeholder="https://example.com">
 
     <br><br>
 
-    <button class="primary" onclick="addLink()">+ Add Link</button>
+    <button class="primary" onclick="addLink()">
+      + Add Link
+    </button>
 
     <h3 class="section-title">Saved Links</h3>
 
@@ -436,6 +478,7 @@
 <script>
 
   function showScreen(screenId) {
+
     document.querySelectorAll('.screen').forEach(function(screen) {
       screen.classList.remove('active');
     });
@@ -447,21 +490,32 @@
 
 
   function openUrl(url) {
-    window.open(url, '_blank', 'noopener,noreferrer');
+
+    window.open(
+      url,
+      '_blank',
+      'noopener,noreferrer'
+    );
   }
 
 
   function searchWeb() {
-    const query = document.getElementById('homeSearch').value.trim();
+
+    const query =
+      document.getElementById('homeSearch').value.trim();
 
     if (!query) {
       alert('Please enter a search or website.');
       return;
     }
 
-    if (query.startsWith('http://') || query.startsWith('https://')) {
+    if (
+      query.startsWith('http://') ||
+      query.startsWith('https://')
+    ) {
       openUrl(query);
     } else {
+
       openUrl(
         'https://www.google.com/search?q=' +
         encodeURIComponent(query)
@@ -478,50 +532,53 @@
     const engine =
       document.getElementById('searchEngine').value;
 
-    const filter =
-      document.getElementById('timeFilter').value;
-
     if (!query) {
-      alert('Please enter a URL or search.');
+      alert('Please enter a search or website.');
       return;
     }
+
 
     if (engine === 'url') {
 
       let url = query;
 
-      if (!url.startsWith('http://') &&
-          !url.startsWith('https://')) {
+      if (
+        !url.startsWith('http://') &&
+        !url.startsWith('https://')
+      ) {
         url = 'https://' + url;
       }
 
       openUrl(url);
+
       return;
     }
 
+
     let base = '';
 
+
     if (engine === 'google') {
-      base = 'https://www.google.com/search?q=';
+      base =
+        'https://www.google.com/search?q=';
     }
+
 
     if (engine === 'yandex') {
-      base = 'https://yandex.com/search/?text=';
+      base =
+        'https://yandex.com/search/?text=';
     }
+
 
     if (engine === 'duck') {
-      base = 'https://duckduckgo.com/?q=';
+      base =
+        'https://duckduckgo.com/?q=';
     }
 
-    let url = base + encodeURIComponent(query);
 
-    /*
-      Time filters are displayed in the interface.
-      Exact filter parameters vary by search engine.
-      We will improve engine-specific filtering in a later version.
-    */
-
-    openUrl(url);
+    openUrl(
+      base + encodeURIComponent(query)
+    );
   }
 
 
@@ -535,8 +592,10 @@
       return null;
     }
 
-    if (!url.startsWith('http://') &&
-        !url.startsWith('https://')) {
+    if (
+      !url.startsWith('http://') &&
+      !url.startsWith('https://')
+    ) {
       url = 'https://' + url;
     }
 
@@ -583,32 +642,51 @@
   function loadLinks() {
 
     const links =
-      JSON.parse(localStorage.getItem('smartHubLinks') || '[]');
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
 
     const container =
       document.getElementById('savedLinks');
 
     container.innerHTML = '';
 
+
     if (links.length === 0) {
 
       container.innerHTML =
-        '<div class="empty">No saved links yet.</div>';
+        '<div class="empty">' +
+        'No saved links yet.' +
+        '</div>';
 
       return;
     }
 
+
     links.forEach(function(link, index) {
 
-      const item = document.createElement('div');
+      const item =
+        document.createElement('div');
 
       item.className = 'link-item';
 
       item.innerHTML =
-        '<span>' + escapeHtml(link.name) + '</span>' +
+        '<span>' +
+        escapeHtml(link.name) +
+        '</span>' +
+
         '<div class="link-actions">' +
-        '<button class="primary" onclick="openSavedLink(' + index + ')">Open</button>' +
-        '<button class="secondary" onclick="deleteLink(' + index + ')">Delete</button>' +
+
+        '<button class="primary" ' +
+        'onclick="openSavedLink(' +
+        index +
+        ')">Open</button>' +
+
+        '<button class="secondary" ' +
+        'onclick="deleteLink(' +
+        index +
+        ')">Delete</button>' +
+
         '</div>';
 
       container.appendChild(item);
@@ -624,31 +702,46 @@
     let url =
       document.getElementById('linkUrl').value.trim();
 
+
     if (!name || !url) {
-      alert('Please enter both a name and URL.');
+
+      alert(
+        'Please enter both a name and URL.'
+      );
+
       return;
     }
 
-    if (!url.startsWith('http://') &&
-        !url.startsWith('https://')) {
+
+    if (
+      !url.startsWith('http://') &&
+      !url.startsWith('https://')
+    ) {
       url = 'https://' + url;
     }
 
+
     const links =
-      JSON.parse(localStorage.getItem('smartHubLinks') || '[]');
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
+
 
     links.push({
       name: name,
       url: url
     });
 
+
     localStorage.setItem(
       'smartHubLinks',
       JSON.stringify(links)
     );
 
+
     document.getElementById('linkName').value = '';
     document.getElementById('linkUrl').value = '';
+
 
     loadLinks();
   }
@@ -657,7 +750,10 @@
   function openSavedLink(index) {
 
     const links =
-      JSON.parse(localStorage.getItem('smartHubLinks') || '[]');
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
+
 
     if (links[index]) {
       openUrl(links[index].url);
@@ -668,14 +764,19 @@
   function deleteLink(index) {
 
     const links =
-      JSON.parse(localStorage.getItem('smartHubLinks') || '[]');
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
+
 
     links.splice(index, 1);
+
 
     localStorage.setItem(
       'smartHubLinks',
       JSON.stringify(links)
     );
+
 
     loadLinks();
   }
@@ -683,7 +784,8 @@
 
   function escapeHtml(text) {
 
-    const div = document.createElement('div');
+    const div =
+      document.createElement('div');
 
     div.textContent = text;
 
@@ -696,4 +798,4 @@
 </script>
 
 </body>
-        </html>
+  </html>
