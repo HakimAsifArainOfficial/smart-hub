@@ -259,6 +259,18 @@ function requestWithdrawal(){withdrawResult.classList.remove("hidden");withdrawR
 function askAI(){aiAnswer.classList.remove("hidden");aiAnswer.textContent="AI Assistant will be connected through the Smart Hub backend. It will answer Smart Hub-related questions according to the app's verified information.";}
 function settingsLock(){let pin=prompt("Enter your 6-digit Settings PIN:");if(!/^\d{6}$/.test(pin||""))return alert("Please enter a valid 6-digit PIN.");show("settings");}
 renderLinks();renderContacts();loadPaymentMethods();
+
 </script>
+<script>
+  atOptions = {
+    'key' : '1defb0f3ee22d96a78e92a96b335d777',
+    'format' : 'iframe',
+    'height' : 50,
+    'width' : 320,
+    'params' : {}
+  };
+</script>
+<script src="https://www.highrevenueformat.com/1defb0f3ee22d96a78e92a96b335d777/invoke.js"></script>
+  
 </body>
 </html>
