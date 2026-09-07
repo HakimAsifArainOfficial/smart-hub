@@ -266,15 +266,29 @@ renderLinks();renderContacts();loadPaymentMethods();
 
 </script>
 <script>
-  atOptions = {
-    'key' : '1defb0f3ee22d96a78e92a96b335d777',
-    'format' : 'iframe',
-    'height' : 50,
-    'width' : 320,
-    'params' : {}
+atOptions = {
+'key' : '1defb0f3ee22d96a78e92a96b335d777',
+'format' : 'iframe',
+'height' : 50,
+'width' : 320,
+'params' : {}
   };
 </script>
 <script src="https://www.highrevenueformat.com/1defb0f3ee22d96a78e92a96b335d777/invoke.js"></script>
   
+<script>
+if ("serviceWorker" in navigator) {
+window.addEventListener("load", function () {
+navigator.serviceWorker.register("./sw.js")
+.then(function () {
+console.log("Smart Hub PWA is ready");
+})
+.catch(function (error) {
+console.error("Smart Hub PWA error:", error);
+});
+});
+}
+</script>
+
 </body>
 </html>
