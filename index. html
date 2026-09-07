@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Hub</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #1f2937;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px 16px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    header p {
+      margin: 7px 0 0;
+      opacity: .85;
+    }
+
+    .container {
+      max-width: 650px;
+      margin: auto;
+      padding: 18px;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 15px;
+      background: white;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 15px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: #2563eb;
+      color: white;
+    }
+
+    .secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .section-title {
+      margin: 20px 0 10px;
+      font-size: 19px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 18px 12px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07);
+      cursor: pointer;
+    }
+
+    .card .icon {
+      font-size: 30px;
+      margin-bottom: 8px;
+    }
+
+    .card h3 {
+      margin: 4px 0;
+      font-size: 16px;
+    }
+
+    .card p {
+      margin: 4px 0;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .service-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .service {
+      background: white;
+      padding: 14px;
+      border-radius: 11px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .service-name {
+      font-weight: bold;
+    }
+
+    .service button {
+      background: #2563eb;
+      color: white;
+      padding: 9px 12px;
+    }
+
+    .ad-box {
+      margin: 20px 0;
+      padding: 22px;
+      background: white;
+      border: 1px dashed #aaa;
+      border-radius: 12px;
+      text-align: center;
+      color: #777;
+    }
+
+    .back {
+      margin-bottom: 15px;
+    }
+
+    .empty {
+      background: white;
+      padding: 18px;
+      border-radius: 12px;
+      text-align: center;
+      color: #6b7280;
+      margin-top: 15px;
+    }
+
+    .link-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: white;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+
+    .link-actions {
+      display: flex;
+      gap: 5px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px 10px;
+      color: #777;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>Smart Hub</h1>
+  <p>Your simple all-in-one web hub</p>
+</header>
+
+<div class="container">
+
+  <!-- HOME -->
+  <section id="home" class="screen active">
+
+    <div class="search-box">
+      <input id="homeSearch" type="text" placeholder="Search or enter a website...">
+      <button class="primary" onclick="searchWeb()">Go</button>
+    </div>
+
+    <div class="grid">
+
+      <div class="card" onclick="showScreen('browser')">
+        <div class="icon">🌐</div>
+        <h3>Browser</h3>
+        <p>Search & open websites</p>
+      </div>
+
+      <div class="card" onclick="showScreen('services')">
+        <div class="icon">📱</div>
+        <h3>Services</h3>
+        <p>Useful websites</p>
+      </div>
+
+      <div class="card" onclick="showScreen('security')">
+        <div class="icon">🛡️</div>
+        <h3>Security</h3>
+        <p>Check website safety</p>
+      </div>
+
+      <div class="card" onclick="showScreen('links')">
+        <div class="icon">🔗</div>
+        <h3>My Links</h3>
+        <p>Your saved links</p>
+      </div>
+
+    </div>
+
+    <div class="ad-box">
+      Advertisement
+      <br>
+      <small>Monetag ad will be added here</small>
+    </div>
+
+  </section>
+
+
+  <!-- BROWSER -->
+  <section id="browser" class="screen">
+
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
+
+    <h2>🌐 Browser & Search</h2>
+
+    <input
+      id="browserInput"
+      type="text"
+      placeholder="Search something or enter website URL">
+
+    <br><br>
+
+    <select id="searchEngine">
+      <option value="google">Google Search</option>
+      <option value="yandex">Yandex Search</option>
+      <option value="duck">DuckDuckGo Search</option>
+      <option value="url">Open Website URL</option>
+    </select>
+
+    <br><br>
+
+    <select id="timeFilter">
+      <option value="any">Any time</option>
+      <option value="hour">Past hour</option>
+      <option value="day">Past 24 hours</option>
+      <option value="week">Past 7 days</option>
+      <option value="month">Past month</option>
+      <option value="year">Past year</option>
+      <option value="custom">Custom time</option>
+    </select>
+
+    <br><br>
+
+    <button class="primary" onclick="browserSearch()">
+      Search / Open
+    </button>
+
+    <div class="empty">
+      You can use Google, Yandex or DuckDuckGo,
+      or enter any website URL.
+    </div>
+
+  </section>
+
+
+  <!-- SERVICES -->
+  <section id="services" class="screen">
+
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
+
+    <h2>📱 Services</h2>
+
+    <div class="service-list">
+
+      <div class="service">
+        <span class="service-name">YouTube</span>
+        <button onclick="openUrl('https://www.youtube.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Blog</span>
+        <button onclick="openUrl('https://www.blogger.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Dailymotion</span>
+        <button onclick="openUrl('https://www.dailymotion.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Tubidy</span>
+        <button onclick="openUrl('https://tubidy.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Facebook</span>
+        <button onclick="openUrl('https://www.facebook.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">X (Twitter)</span>
+        <button onclick="openUrl('https://x.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Instagram</span>
+        <button onclick="openUrl('https://www.instagram.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">TikTok</span>
+        <button onclick="openUrl('https://www.tiktok.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Reddit</span>
+        <button onclick="openUrl('https://www.reddit.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">LinkedIn</span>
+        <button onclick="openUrl('https://www.linkedin.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">WordPress</span>
+        <button onclick="openUrl('https://wordpress.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Medium</span>
+        <button onclick="openUrl('https://medium.com/')">Open</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">GitHub</span>
+        <button onclick="openUrl('https://github.com/')">Open</button>
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- SECURITY -->
+  <section id="security" class="screen">
+
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
+
+    <h2>🛡️ Website Safety</h2>
+
+    <p>Enter a website URL and choose a security checker.</p>
+
+    <input
+      id="securityUrl"
+      type="text"
+      placeholder="https://example.com">
+
+    <br><br>
+
+    <div class="service-list">
+
+      <div class="service">
+        <span class="service-name">VirusTotal</span>
+        <button onclick="checkVirusTotal()">Check</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Google Safe Browsing</span>
+        <button onclick="openUrl('https://transparencyreport.google.com/safe-browsing/search')">
+          Check
+        </button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Yandex Safety</span>
+        <button onclick="openUrl('https://yandex.com/safety/')">
+          Check
+        </button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">Sucuri SiteCheck</span>
+        <button onclick="checkSucuri()">Check</button>
+      </div>
+
+      <div class="service">
+        <span class="service-name">URLVoid</span>
+        <button onclick="checkUrlVoid()">Check</button>
+      </div>
+
+    </div>
+
+    <div class="empty">
+      Security services provide checks and warnings.
+      No scanner can guarantee that a website is 100% safe.
+    </div>
+
+  </section>
+
+
+  <!-- MY LINKS -->
+  <section id="links" class="screen">
+
+    <button class="secondary back" onclick="showScreen('home')">
+      ← Home
+    </button>
+
+    <h2>🔗 My Links</h2>
+
+    <input
+      id="linkName"
+      type="text"
+      placeholder="Link name">
+
+    <br><br>
+
+    <input
+      id="linkUrl"
+      type="text"
+      placeholder="https://example.com">
+
+    <br><br>
+
+    <button class="primary" onclick="addLink()">
+      + Add Link
+    </button>
+
+    <h3 class="section-title">Saved Links</h3>
+
+    <div id="savedLinks"></div>
+
+  </section>
+
+
+  <footer>
+    © 2026 Smart Hub
+  </footer>
+
+</div>
+
+
+<script>
+
+  function showScreen(screenId) {
+
+    document.querySelectorAll('.screen').forEach(function(screen) {
+      screen.classList.remove('active');
+    });
+
+    document.getElementById(screenId).classList.add('active');
+
+    window.scrollTo(0, 0);
+  }
+
+
+  function openUrl(url) {
+
+    window.open(
+      url,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }
+
+
+  function searchWeb() {
+
+    const query =
+      document.getElementById('homeSearch').value.trim();
+
+    if (!query) {
+      alert('Please enter a search or website.');
+      return;
+    }
+
+    if (
+      query.startsWith('http://') ||
+      query.startsWith('https://')
+    ) {
+      openUrl(query);
+    } else {
+
+      openUrl(
+        'https://www.google.com/search?q=' +
+        encodeURIComponent(query)
+      );
+    }
+  }
+
+
+  function browserSearch() {
+
+    const query =
+      document.getElementById('browserInput').value.trim();
+
+    const engine =
+      document.getElementById('searchEngine').value;
+
+    if (!query) {
+      alert('Please enter a search or website.');
+      return;
+    }
+
+
+    if (engine === 'url') {
+
+      let url = query;
+
+      if (
+        !url.startsWith('http://') &&
+        !url.startsWith('https://')
+      ) {
+        url = 'https://' + url;
+      }
+
+      openUrl(url);
+
+      return;
+    }
+
+
+    let base = '';
+
+
+    if (engine === 'google') {
+      base =
+        'https://www.google.com/search?q=';
+    }
+
+
+    if (engine === 'yandex') {
+      base =
+        'https://yandex.com/search/?text=';
+    }
+
+
+    if (engine === 'duck') {
+      base =
+        'https://duckduckgo.com/?q=';
+    }
+
+
+    openUrl(
+      base + encodeURIComponent(query)
+    );
+  }
+
+
+  function getSecurityUrl() {
+
+    let url =
+      document.getElementById('securityUrl').value.trim();
+
+    if (!url) {
+      alert('Please enter a website URL first.');
+      return null;
+    }
+
+    if (
+      !url.startsWith('http://') &&
+      !url.startsWith('https://')
+    ) {
+      url = 'https://' + url;
+    }
+
+    return url;
+  }
+
+
+  function checkVirusTotal() {
+
+    const url = getSecurityUrl();
+
+    if (!url) return;
+
+    openUrl(
+      'https://www.virustotal.com/gui/home/url'
+    );
+  }
+
+
+  function checkSucuri() {
+
+    const url = getSecurityUrl();
+
+    if (!url) return;
+
+    openUrl(
+      'https://sitecheck.sucuri.net/'
+    );
+  }
+
+
+  function checkUrlVoid() {
+
+    const url = getSecurityUrl();
+
+    if (!url) return;
+
+    openUrl(
+      'https://www.urlvoid.com/'
+    );
+  }
+
+
+  function loadLinks() {
+
+    const links =
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
+
+    const container =
+      document.getElementById('savedLinks');
+
+    container.innerHTML = '';
+
+
+    if (links.length === 0) {
+
+      container.innerHTML =
+        '<div class="empty">' +
+        'No saved links yet.' +
+        '</div>';
+
+      return;
+    }
+
+
+    links.forEach(function(link, index) {
+
+      const item =
+        document.createElement('div');
+
+      item.className = 'link-item';
+
+      item.innerHTML =
+        '<span>' +
+        escapeHtml(link.name) +
+        '</span>' +
+
+        '<div class="link-actions">' +
+
+        '<button class="primary" ' +
+        'onclick="openSavedLink(' +
+        index +
+        ')">Open</button>' +
+
+        '<button class="secondary" ' +
+        'onclick="deleteLink(' +
+        index +
+        ')">Delete</button>' +
+
+        '</div>';
+
+      container.appendChild(item);
+    });
+  }
+
+
+  function addLink() {
+
+    const name =
+      document.getElementById('linkName').value.trim();
+
+    let url =
+      document.getElementById('linkUrl').value.trim();
+
+
+    if (!name || !url) {
+
+      alert(
+        'Please enter both a name and URL.'
+      );
+
+      return;
+    }
+
+
+    if (
+      !url.startsWith('http://') &&
+      !url.startsWith('https://')
+    ) {
+      url = 'https://' + url;
+    }
+
+
+    const links =
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
+
+
+    links.push({
+      name: name,
+      url: url
+    });
+
+
+    localStorage.setItem(
+      'smartHubLinks',
+      JSON.stringify(links)
+    );
+
+
+    document.getElementById('linkName').value = '';
+    document.getElementById('linkUrl').value = '';
+
+
+    loadLinks();
+  }
+
+
+  function openSavedLink(index) {
+
+    const links =
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
+
+
+    if (links[index]) {
+      openUrl(links[index].url);
+    }
+  }
+
+
+  function deleteLink(index) {
+
+    const links =
+      JSON.parse(
+        localStorage.getItem('smartHubLinks') || '[]'
+      );
+
+
+    links.splice(index, 1);
+
+
+    localStorage.setItem(
+      'smartHubLinks',
+      JSON.stringify(links)
+    );
+
+
+    loadLinks();
+  }
+
+
+  function escapeHtml(text) {
+
+    const div =
+      document.createElement('div');
+
+    div.textContent = text;
+
+    return div.innerHTML;
+  }
+
+
+  loadLinks();
+
+</script>
+
+</body>
+</html>
