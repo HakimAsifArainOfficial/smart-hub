@@ -1,0 +1,235 @@
+<!DOCTYPE html>  <html lang="en">  
+<head>  
+<meta charset="UTF-8">  
+<meta name="viewport" content="width=device-width, initial-scale=1.0">  <meta name="monetag" content="44607f85ddb9974839490048eb85aa58">  <title>Smart Hub</title>  
+<style>  
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#172033}  
+header{padding:22px 18px;background:#172033;color:white;text-align:center}  
+header h1{margin:0 0 6px;font-size:28px}header p{margin:0;opacity:.85}  
+main{max-width:900px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}  
+button,.linkbtn{border:0;border-radius:14px;padding:16px;background:white;color:#172033;font-size:16px;box-shadow:0 2px 10px #0001;cursor:pointer;text-align:left;width:100%}  
+button:hover,.linkbtn:hover{transform:translateY(-1px)}  
+.icon{font-size:24px;display:block;margin-bottom:7px}.small{font-size:13px;color:#667085}  
+.panel{display:none;background:white;border-radius:16px;padding:18px;margin-top:16px;box-shadow:0 2px 12px #0001}.panel.active{display:block}  
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:150px}  
+input,select,textarea{width:100%;padding:13px;border:1px solid #d6dbe5;border-radius:10px;margin:6px 0 12px;font-size:15px}  
+h2{margin-top:0}h3{margin-bottom:8px}.back{background:#eef1f6;margin-bottom:12px;width:auto;padding:10px 14px}.danger{background:#ffecec}.success{background:#eaf8ef}.muted{background:#eef1f6}  
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.cards button{padding:13px}  
+.notice{padding:12px;border-radius:10px;background:#f0f4ff;margin:10px 0;font-size:14px}  
+.status{font-weight:bold}.hidden{display:none!important}  
+footer{text-align:center;padding:30px 10px;color:#667085;font-size:13px}  
+a{color:#175cd3;text-decoration:none}  
+@media(max-width:650px){.grid,.cards{grid-template-columns:1fr}}  
+</style>  
+</head>  
+<body>  <header>  
+  <h1>Smart Hub</h1>  
+  <p>Your simple all-in-one web hub</p>  
+</header>  <main>  
+<div id="home" class="grid">  
+  <button onclick="show('browser')"><span class="icon">🌐</span><b>Browser & Search</b><span class="small">Google, Yandex, DuckDuckGo and more</span></button>  
+  <button onclick="show('services')"><span class="icon">📱</span><b>Services</b><span class="small">Useful websites and social platforms</span></button>  
+  <button onclick="show('security')"><span class="icon">🛡️</span><b>Security</b><span class="small">Website and file safety tools</span></button>  
+  <button onclick="show('reverse')"><span class="icon">📷</span><b>Reverse Image & Face</b><span class="small">Image search and face tools</span></button>  
+  <button onclick="show('news')"><span class="icon">📰</span><b>News</b><span class="small">News by country</span></button>  
+  <button onclick="show('links')"><span class="icon">🔗</span><b>My Links</b><span class="small">Your saved links</span></button>  
+  <button onclick="show('device')"><span class="icon">📱</span><b>Device Info</b><span class="small">Local browser/device information</span></button>  
+  <button onclick="show('contacts')"><span class="icon">👥</span><b>Contacts</b><span class="small">Names, phone numbers and emails</span></button>  
+  <button onclick="show('earnings')"><span class="icon">💰</span><b>Earnings</b><span class="small">Separate rewards area</span></button>  
+  <button onclick="show('ai')"><span class="icon">🤖</span><b>AI Assistant</b><span class="small">Smart Hub information and support</span></button>  
+  <button onclick="settingsLock()"><span class="icon">⚙️</span><b>Settings</b><span class="small">6-digit PIN protected</span></button>  
+  <a class="linkbtn" href="mailto:justice.alliance.intl@proron.me"><span class="icon">📧</span><b>Complaints</b><span class="small">Contact by email</span></a>  
+</div>  <section id="browser" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>🌐 Browser & Search</h2>  
+<div class="cards">  
+<button onclick="openUrl('https://www.google.com/search?q=')">Google Search</button>  
+<button onclick="openUrl('https://yandex.com/search/?text=')">Yandex Search</button>  
+<button onclick="openUrl('https://duckduckgo.com/?q=')">DuckDuckGo Search</button>  
+<button onclick="openUrl('https://www.google.com/chrome/')">Chrome</button>  
+<button onclick="openUrl('https://yandex.com/')">Yandex</button>  
+<button onclick="customSearch()">Custom Search / URL</button>  
+<button onclick="openUrl('https://www.startpage.com/')">Anonymous Search</button>  
+</div>  
+<h3>Yandex</h3>  
+<div class="cards">  
+<button onclick="openUrl('https://yandex.com/news/')">News</button>  
+<button onclick="openUrl('https://yandex.com/images/')">Images</button>  
+<button onclick="openUrl('https://yandex.com/video/')">Videos</button>  
+<button onclick="openUrl('https://yandex.com/search/?text=AI')">AI</button>  
+<button onclick="openUrl('https://mail.yandex.com/')">Yandex Mail</button>  
+</div>  
+</section>  <section id="services" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>📱 Services</h2>  
+<div class="cards" id="serviceList"></div>  
+<h3>Own Blog</h3><a class="linkbtn" href="https://hakimasifarainofficial.blogspot.com/" target="_blank">HakimAsifArainOfficial Blog</a>  
+</section>  <section id="security" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>🛡️ Security</h2>  
+<div class="cards">  
+<button onclick="openUrl('https://www.virustotal.com/gui/home/url')">VirusTotal</button>  
+<button onclick="openUrl('https://transparencyreport.google.com/safe-browsing/search')">Google Safe Browsing</button>  
+<button onclick="openUrl('https://urlvoid.com/')">URLVoid</button>  
+<button onclick="openUrl('https://sitecheck.sucuri.net/')">Sucuri SiteCheck</button>  
+<button onclick="openUrl('https://www.virustotal.com/gui/home/upload')">File Scan</button>  
+</div>  
+<h3>AI Image Detection</h3><div class="cards">  
+<button onclick="openUrl('https://isgen.ai/ai-image-detector')">Isgen</button>  
+<button onclick="openUrl('https://deepai.org/ai-image-detector')">DeepAI</button>  
+<button onclick="openUrl('https://wasitai.com/')">WasItAI</button>  
+<button onclick="openUrl('https://imagedetector.com/')">ImageDetector</button>  
+<button onclick="openUrl('https://www.zerogpt.com/ai-image-detector')">ZeroGPT</button>  
+</div>  
+<h3>AI Video Detection</h3><div class="cards">  
+<button onclick="openUrl('https://humantext.pro/ai-video-detector')">HumanText</button>  
+<button onclick="openUrl('https://uncovai.com/video-detection/')">UncovAI</button>  
+</div>  
+</section>  <section id="reverse" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>📷 Reverse Image & Face</h2>  
+<div class="notice">Public-web search only. A search service may return public images/pages; it cannot guarantee that every public record exists.</div>  
+<h3>Reverse Image Search</h3>  
+<div class="cards">  
+<button onclick="openUrl('https://lens.google.com/')">Google Lens</button>  
+<button onclick="openUrl('https://yandex.com/images/')">Yandex Images</button>  
+<button onclick="openUrl('https://www.bing.com/visualsearch')">Bing Visual Search</button>  
+</div>  
+<h3>Face Compare</h3>  
+<div class="row"><div><label>First image</label><input id="face1" type="file" accept="image/*"></div><div><label>Second image</label><input id="face2" type="file" accept="image/*"></div></div>  
+<button class="muted" onclick="compareFaces()">🔍 Compare Faces</button>  
+<div id="faceResult" class="notice hidden"></div>  
+<h3>Smile Recognition</h3><input id="smile" type="file" accept="image/*"><button class="muted" onclick="demoFeature('smile')">😊 Analyze Smile</button>  
+<div id="smileResult" class="notice hidden"></div>  
+<h3>Celebrity Compare</h3><input id="celebrity" type="file" accept="image/*"><button class="muted" onclick="openUrl('https://lens.google.com/')">⭐ Search Celebrity Match</button>  
+</section>  <section id="news" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>📰 News</h2>  
+<select id="country" onchange="loadNews()"><option value="">Select country/region</option></select>  
+<div id="newsList" class="cards"></div>  
+</section>  <section id="links" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>🔗 My Links</h2>  
+<input id="linkName" placeholder="Link name"><input id="linkUrl" placeholder="https://example.com">  
+<button onclick="saveLink()">Save Link</button><div id="savedLinks"></div>  
+</section>  <section id="device" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>📱 Device Info</h2>  
+<div class="notice">This section reads available information locally in the browser. It does not upload the displayed information.</div>  
+<div id="deviceInfo"></div>  
+<button onclick="loadDevice()">🔄 Scan Device</button>  
+</section>  <section id="contacts" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>👥 Contacts</h2>  
+<div class="notice">Proton-based saving/sync is planned for the full account/backend version.</div>  
+<input id="contactName" placeholder="Name"><input id="contactPhone" placeholder="Phone number"><input id="contactEmail" placeholder="Email address">  
+<button onclick="saveContact()">🔐 Save Contact</button><div id="contactList"></div>  
+</section>  <section id="earnings" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>💰 Earnings</h2>  
+<div class="notice">This is a frontend prototype. Real rewards, verified ad revenue, accounts and payouts require a secure backend and an approved rewarded-ad provider.</div>  
+<label><input id="earningOn" type="checkbox" onchange="toggleEarnings()"> Enable Earnings</label>  
+<div id="earningArea" class="hidden">  
+<h3>Earnings Profile</h3>  
+<input placeholder="Real name"><input placeholder="Phone number"><input placeholder="Email"><input placeholder="City"><input placeholder="Country"><input placeholder="6-digit password" inputmode="numeric" maxlength="6">  
+<label>2FA</label><select><option>Authenticator app</option><option>Email</option></select>  
+<p><b>Minimum withdrawal:</b> $25</p><p><b>Withdrawal choices:</b> $26 / $50 / $100</p>  
+<p><b>Withdrawal cooldown:</b> 31 days after a completed withdrawal.</p>  
+<button onclick="show('withdrawal')">💳 Withdrawal</button>  
+<h3>Rewarded Ads</h3><button onclick="demoFeature('ad')">▶ Watch approved rewarded ad</button>  
+<div id="adResult" class="notice hidden"></div>  
+</div>  
+</section>  <section id="withdrawal" class="panel">  
+<button class="back" onclick="show('earnings')">← Earnings</button><h2>💳 Withdrawal</h2>  
+<div class="notice">Every withdrawal enters a mandatory 3-day pending period before payout processing.</div>  
+<select id="payCategory" onchange="loadPaymentMethods()"><option>Bank Account</option><option>Crypto</option><option>Online Payment</option><option>Wallets</option></select>  
+<select id="payMethod" onchange="paymentFields()"></select>  
+<div id="paymentFields"></div>  
+<button onclick="requestWithdrawal()">Submit Withdrawal</button>  
+<div id="withdrawResult" class="notice hidden"></div>  
+</section>  <section id="ai" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>🤖 AI Assistant</h2>  
+<div class="notice">AI answers about Smart Hub will be connected later through a secure backend/API.</div>  
+<textarea id="aiQuestion" rows="5" placeholder="Ask about Smart Hub..."></textarea>  
+<button onclick="askAI()">Ask AI</button><div id="aiAnswer" class="notice hidden"></div>  
+</section>  <section id="settings" class="panel">  
+<button class="back" onclick="home()">← Home</button><h2>⚙️ Settings</h2>  
+<label>AI result display</label><select><option>Show AI labels</option><option>Hide AI results</option></select>  
+<label>Data Saver</label><select><option>Off</option><option>On</option></select>  
+<label>Battery Saver</label><select><option>Off</option><option>On</option></select>  
+<label>Captions</label><select><option>On</option><option>Off</option></select>  
+<div class="notice">Security initialization/loading and the full encrypted settings system will be completed with the native/backend version.</div>  
+</section>  <footer>  
+<a href="https://www.youtube.com/@HakimAsifArainOfficial" target="_blank">YouTube @HakimAsifArainOfficial</a>  
+&nbsp; • &nbsp;  
+<a href="https://hakimasifarainofficial.blogspot.com/" target="_blank">Blog</a>  
+&nbsp; • &nbsp;  
+<a href="mailto:justice.alliance.intl@proron.me">Complaints</a>  
+</footer>  
+</main>  <script>  
+const services=[  
+["YouTube","https://www.youtube.com/"],["Dailymotion","https://www.dailymotion.com/"],["Tubidy","https://tubidy.com/"],  
+["Facebook","https://www.facebook.com/"],["X (Twitter)","https://x.com/"],["Instagram","https://www.instagram.com/"],  
+["TikTok","https://www.tiktok.com/"],["Reddit","https://www.reddit.com/"],["LinkedIn","https://www.linkedin.com/"],  
+["WordPress","https://wordpress.com/"],["Medium","https://medium.com/"],["GitHub","https://github.com/"]  
+];  
+document.getElementById("serviceList").innerHTML=services.map(x=>`<button onclick="openUrl('${x[1]}')">${x[0]}</button>`).join("");  
+  
+const news={  
+"United Kingdom":[["BBC","https://www.bbc.com/news"],["The Guardian","https://www.theguardian.com/uk-news"],["Reuters","https://www.reuters.com/world/uk/"]],  
+"United States":[["Reuters","https://www.reuters.com/world/us/"],["AP News","https://apnews.com/"],["NPR","https://www.npr.org/"]],  
+"France":[["France 24","https://www.france24.com/en/france/"],["Le Monde","https://www.lemonde.fr/en/"],["Reuters","https://www.reuters.com/world/europe/"]],  
+"China":[["CGTN","https://www.cgtn.com/"],["China Daily","https://www.chinadaily.com.cn/"],["Reuters","https://www.reuters.com/world/china/"]],  
+"Russia":[["TASS","https://tass.com/"],["Reuters","https://www.reuters.com/world/"],["BBC","https://www.bbc.com/news/world/europe"]],  
+"Qatar":[["Al Jazeera","https://www.aljazeera.com/"],["The Peninsula","https://thepeninsulaqatar.com/"],["Reuters","https://www.reuters.com/world/middle-east/"]],  
+"Saudi Arabia":[["Arab News","https://www.arabnews.com/"],["Saudi Gazette","https://saudigazette.com.sa/"],["Reuters","https://www.reuters.com/world/middle-east/"]],  
+"Japan":[["NHK World","https://www3.nhk.or.jp/nhkworld/"],["Japan Times","https://www.japantimes.co.jp/"],["Reuters","https://www.reuters.com/world/asia-pacific/"]],  
+"United Arab Emirates":[["The National","https://www.thenationalnews.com/"],["Gulf News","https://gulfnews.com/"],["Reuters","https://www.reuters.com/world/middle-east/"]],  
+"Germany":[["DW","https://www.dw.com/en/"],["Der Spiegel","https://www.spiegel.de/international/"],["Reuters","https://www.reuters.com/world/europe/"]],  
+"Israel":[["The Times of Israel","https://www.timesofisrael.com/"],["Jerusalem Post","https://www.jpost.com/"],["Reuters","https://www.reuters.com/world/middle-east/"]],  
+"North Korea":[["Reuters","https://www.reuters.com/world/"],["BBC","https://www.bbc.com/news/world/asia/north-korea"],["KCNA Watch","https://kcnawatch.org/"]],  
+"Afghanistan":[["TOLOnews","https://tolonews.com/"],["Pajhwok","https://pajhwok.com/"],["Reuters","https://www.reuters.com/world/asia-pacific/"]],  
+"India":[["The Hindu","https://www.thehindu.com/"],["Hindustan Times","https://www.hindustantimes.com/"],["Reuters","https://www.reuters.com/world/india/"]],  
+"Africa":[["BBC Africa","https://www.bbc.com/news/world/africa"],["Al Jazeera Africa","https://www.aljazeera.com/africa/"],["Reuters Africa","https://www.reuters.com/world/africa/"]],  
+"Italy":[["ANSA","https://www.ansa.it/english/"],["La Repubblica","https://www.repubblica.it/"],["Reuters","https://www.reuters.com/world/europe/"]],  
+"Hungary":[["Telex","https://telex.hu/english"],["Hungary Today","https://hungarytoday.hu/"],["Reuters","https://www.reuters.com/world/europe/"]]  
+};  
+const country=document.getElementById("country");  
+Object.keys(news).forEach(c=>country.add(new Option(c,c)));  
+  
+const payment={  
+"Bank Account":["Bank Account"],  
+"Crypto":["Litecoin (LTC)","XLM","Dogecoin (DOGE)","TRON"],  
+"Online Payment":["Payoneer","Binance","Coinbase","Nexo","FaucetPay","Google Pay"],  
+"Wallets":["Wallet Account"]  
+};  
+function show(id){document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.getElementById("home").style.display="none";document.getElementById(id).classList.add("active");if(id==="device")loadDevice();if(id==="news")loadNews();if(id==="withdrawal")loadPaymentMethods();}  
+function home(){document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.getElementById("home").style.display="grid";}  
+function openUrl(url){window.open(url,"_blank","noopener");}  
+function customSearch(){let q=prompt("Enter search words or a complete URL:");if(!q)return;if(/^https?:\/\//i.test(q))openUrl(q);else openUrl("https://www.google.com/search?q="+encodeURIComponent(q));}  
+function loadNews(){let c=country.value;document.getElementById("newsList").innerHTML=(news[c]||[]).map(x=>`<button onclick="openUrl('${x[1]}')">${x[0]}</button>`).join("");}  
+function saveLink(){let n=document.getElementById("linkName").value.trim(),u=document.getElementById("linkUrl").value.trim();if(!n||!u)return alert("Enter a name and URL.");let a=JSON.parse(localStorage.getItem("smartLinks")||"[]");a.push({n,u});localStorage.setItem("smartLinks",JSON.stringify(a));renderLinks();}  
+function renderLinks(){let a=JSON.parse(localStorage.getItem("smartLinks")||"[]");document.getElementById("savedLinks").innerHTML=a.map((x,i)=>`<div class="notice"><a href="${x.u}" target="_blank">${x.n}</a> <button onclick="deleteLink(${i})" class="danger">Delete</button></div>`).join("");}  
+function deleteLink(i){let a=JSON.parse(localStorage.getItem("smartLinks")||"[]");a.splice(i,1);localStorage.setItem("smartLinks",JSON.stringify(a));renderLinks();}  
+function saveContact(){let n=contactName.value.trim(),p=contactPhone.value.trim(),e=contactEmail.value.trim();if(!n)return alert("Enter a name.");let a=JSON.parse(localStorage.getItem("smartContacts")||"[]");a.push({n,p,e});localStorage.setItem("smartContacts",JSON.stringify(a));renderContacts();}  
+function renderContacts(){let a=JSON.parse(localStorage.getItem("smartContacts")||"[]");contactList.innerHTML=a.map(x=>`<div class="notice"><b>${x.n}</b><br>${x.p||""}<br>${x.e||""}</div>`).join("");}  
+function loadDevice(){deviceInfo.innerHTML=`<div class="notice">  
+<b>Browser:</b> ${navigator.userAgent}<br>  
+<b>Language:</b> ${navigator.language}<br>  
+<b>Online:</b> ${navigator.onLine}<br>  
+<b>Screen:</b> ${screen.width} × ${screen.height}<br>  
+<b>Platform:</b> ${navigator.platform||"Unavailable"}<br>  
+<b>CPU cores exposed by browser:</b> ${navigator.hardwareConcurrency||"Unavailable"}<br>  
+<b>Device memory exposed by browser:</b> ${navigator.deviceMemory?navigator.deviceMemory+" GB":"Unavailable"}  
+</div>`;}  
+function compareFaces(){faceResult.classList.remove("hidden");faceResult.textContent="Face matching engine will be connected in the native/backend version. This frontend does not make a biometric identity decision."; }  
+function demoFeature(x){let el=document.getElementById(x==="ad"?"adResult":x+"Result");el.classList.remove("hidden");el.textContent=x==="ad"?"Rewarded-ad provider integration will be connected after the provider and backend are configured.":"Smile analysis engine will be connected in the native version.";}  
+function toggleEarnings(){earningArea.classList.toggle("hidden",!earningOn.checked);}  
+function loadPaymentMethods(){let cat=payCategory.value;payMethod.innerHTML=payment[cat].map(x=>`<option>${x}</option>`).join("");paymentFields();}  
+function paymentFields(){let m=payMethod.value;let html='<input id="amount" placeholder="Amount" inputmode="decimal">';if(m==="Bank Account")html+='<input placeholder="Account holder name"><input placeholder="IBAN"><input placeholder="Bank name"><input placeholder="Country">';else if(["Litecoin (LTC)","XLM","Dogecoin (DOGE)","TRON"].includes(m))html+='<input placeholder="Wallet address">';else html+='<input placeholder="Account email">';paymentFields.innerHTML=html;}  
+function requestWithdrawal(){withdrawResult.classList.remove("hidden");withdrawResult.textContent="Withdrawal request saved as PENDING for 3 days in the future backend. The user will be able to cancel during the pending period.";}  
+function askAI(){aiAnswer.classList.remove("hidden");aiAnswer.textContent="AI Assistant will be connected through the Smart Hub backend. It will answer Smart Hub-related questions according to the app's verified information.";}  
+function settingsLock(){let pin=prompt("Enter your 6-digit Settings PIN:");if(!/^\d{6}$/.test(pin||""))return alert("Please enter a valid 6-digit PIN.");show("settings");}  
+renderLinks();renderContacts();loadPaymentMethods();  
+  
+</script>  <script>  
+  atOptions = {  
+    'key' : '1defb0f3ee22d96a78e92a96b335d777',  
+    'format' : 'iframe',  
+    'height' : 50,  
+    'width' : 320,  
+    'params' : {}  
+  };  
+</script>  <script src="https://www.highrevenueformat.com/1defb0f3ee22d96a78e92a96b335d777/invoke.js"></script>  </body>  
+</html>
