@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Browser & Search Engine - Smart Hub</title>
+
+<meta name="theme-color" content="#172033">
+
+<style>
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f5f7fb;
+  color:#172033;
+}
+
+header{
+  padding:24px 18px;
+  background:#172033;
+  color:white;
+  text-align:center;
+}
+
+header h1{
+  margin:0 0 6px;
+  font-size:27px;
+}
+
+header p{
+  margin:0;
+  opacity:.85;
+  font-size:14px;
+}
+
+main{
+  max-width:900px;
+  margin:auto;
+  padding:18px;
+}
+
+.back{
+  border:0;
+  border-radius:12px;
+  padding:11px 15px;
+  background:#eef1f6;
+  color:#172033;
+  font-size:15px;
+  cursor:pointer;
+  margin-bottom:15px;
+}
+
+.section-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:14px;
+}
+
+.card{
+  border:0;
+  border-radius:16px;
+  padding:20px;
+  background:white;
+  color:#172033;
+  box-shadow:0 2px 12px #0001;
+  cursor:pointer;
+  text-align:left;
+  width:100%;
+  transition:.15s;
+}
+
+.card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 5px 16px #0002;
+}
+
+.card-icon{
+  display:block;
+  font-size:28px;
+  margin-bottom:9px;
+}
+
+.card-title{
+  display:block;
+  font-size:17px;
+  font-weight:bold;
+  margin-bottom:6px;
+}
+
+.card-description{
+  display:block;
+  font-size:13px;
+  color:#667085;
+  line-height:1.45;
+}
+
+.panel{
+  display:none;
+}
+
+.panel.active{
+  display:block;
+}
+
+.item-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.item{
+  border:0;
+  border-radius:14px;
+  padding:16px;
+  background:white;
+  color:#172033;
+  box-shadow:0 2px 10px #0001;
+  cursor:pointer;
+  text-align:left;
+  width:100%;
+}
+
+.item:hover{
+  transform:translateY(-1px);
+}
+
+.item-title{
+  display:block;
+  font-size:16px;
+  font-weight:bold;
+  margin-bottom:5px;
+}
+
+.item-description{
+  display:block;
+  font-size:12px;
+  color:#667085;
+  line-height:1.4;
+}
+
+.custom-box{
+  background:white;
+  border-radius:16px;
+  padding:18px;
+  box-shadow:0 2px 12px #0001;
+}
+
+input{
+  width:100%;
+  padding:13px;
+  border:1px solid #d6dbe5;
+  border-radius:10px;
+  margin:8px 0 12px;
+  font-size:15px;
+}
+
+.open-button{
+  border:0;
+  border-radius:12px;
+  padding:13px 17px;
+  background:#172033;
+  color:white;
+  font-size:15px;
+  cursor:pointer;
+  width:100%;
+}
+
+.notice{
+  padding:13px;
+  border-radius:10px;
+  background:#f0f4ff;
+  margin:10px 0 15px;
+  font-size:13px;
+  line-height:1.5;
+}
+
+h2{
+  margin-top:0;
+}
+
+h3{
+  margin-bottom:10px;
+}
+
+footer{
+  text-align:center;
+  padding:30px 10px;
+  color:#667085;
+  font-size:13px;
+}
+
+@media(max-width:650px){
+
+  .section-grid,
+  .item-grid{
+    grid-template-columns:1fr;
+  }
+
+  main{
+    padding:15px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🌐 Browser & Search Engine</h1>
+  <p>Choose a browser or search engine</p>
+</header>
+
+<main>
+
+<!-- MAIN MENU -->
+
+<section id="mainMenu" class="panel active">
+
+  <button class="back"
+    onclick="window.location.href='./index.html'">
+    ← Home
+  </button>
+
+  <div class="section-grid">
+
+    <!-- Browser -->
+    <button class="card" onclick="showPanel('browserPanel')">
+
+      <span class="card-icon">🌐</span>
+
+      <span class="card-title">
+        Browser
+      </span>
+
+      <span class="card-description">
+        Web browsers for accessing websites and the internet
+      </span>
+
+    </button>
+
+
+    <!-- Search Engine -->
+    <button class="card" onclick="showPanel('searchPanel')">
+
+      <span class="card-icon">🔎</span>
+
+      <span class="card-title">
+        Search Engine
+      </span>
+
+      <span class="card-description">
+        Search the web for websites, information, images and more
+      </span>
+
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- BROWSER -->
+
+<section id="browserPanel" class="panel">
+
+  <button class="back" onclick="showPanel('mainMenu')">
+    ← Browser & Search Engine
+  </button>
+
+  <h2>🌐 Browser</h2>
+
+  <div class="item-grid">
+
+
+    <!-- Brave -->
+    <button class="item"
+      onclick="openUrl('https://brave.com/')">
+
+      <span class="item-title">
+        Brave
+      </span>
+
+      <span class="item-description">
+        Privacy-focused web browser
+      </span>
+
+    </button>
+
+
+    <!-- Chrome -->
+    <button class="item"
+      onclick="openUrl('https://www.google.com/chrome/')">
+
+      <span class="item-title">
+        Chrome
+      </span>
+
+      <span class="item-description">
+        Fast and widely used web browser
+      </span>
+
+    </button>
+
+
+    <!-- Firefox -->
+    <button class="item"
+      onclick="openUrl('https://www.mozilla.org/firefox/')">
+
+      <span class="item-title">
+        Firefox
+      </span>
+
+      <span class="item-description">
+        Open-source, privacy-focused browser
+      </span>
+
+    </button>
+
+
+    <!-- Microsoft Edge -->
+    <button class="item"
+      onclick="openUrl('https://www.microsoft.com/edge')">
+
+      <span class="item-title">
+        Microsoft Edge
+      </span>
+
+      <span class="item-description">
+        Microsoft's fast web browser
+      </span>
+
+    </button>
+
+
+    <!-- Opera -->
+    <button class="item"
+      onclick="openUrl('https://www.opera.com/')">
+
+      <span class="item-title">
+        Opera
+      </span>
+
+      <span class="item-description">
+        Feature-rich web browser with built-in tools
+      </span>
+
+    </button>
+
+
+    <!-- Yandex Browser -->
+    <button class="item"
+      onclick="openUrl('https://browser.yandex.com/')">
+
+      <span class="item-title">
+        Yandex Browser
+      </span>
+
+      <span class="item-description">
+        Fast browser with security and smart features
+      </span>
+
+    </button>
+
+
+    <!-- Custom Browser -->
+    <button class="item"
+      onclick="showPanel('customBrowserPanel')">
+
+      <span class="item-title">
+        ➕ Custom Browser / URL
+      </span>
+
+      <span class="item-description">
+        Open any browser website or URL of your choice
+      </span>
+
+    </button>
+
+
+    <!-- Incognito -->
+    <button class="item"
+      onclick="showPanel('incognitoPanel')">
+
+      <span class="item-title">
+        🕵️ Incognito Mode
+      </span>
+
+      <span class="item-description">
+        Open a private browsing window in your browser
+      </span>
+
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- SEARCH ENGINE -->
+
+<section id="searchPanel" class="panel">
+
+  <button class="back" onclick="showPanel('mainMenu')">
+    ← Browser & Search Engine
+  </button>
+
+  <h2>🔎 Search Engine</h2>
+
+  <div class="item-grid">
+
+
+    <!-- Bing -->
+    <button class="item"
+      onclick="openUrl('https://www.bing.com/')">
+
+      <span class="item-title">
+        Bing
+      </span>
+
+      <span class="item-description">
+        Microsoft's web search engine
+      </span>
+
+    </button>
+
+
+    <!-- DuckDuckGo -->
+    <button class="item"
+      onclick="openUrl('https://duckduckgo.com/')">
+
+      <span class="item-title">
+        DuckDuckGo
+      </span>
+
+      <span class="item-description">
+        Privacy-focused search engine
+      </span>
+
+    </button>
+
+
+    <!-- Google -->
+    <button class="item"
+      onclick="openUrl('https://www.google.com/')">
+
+      <span class="item-title">
+        Google
+      </span>
+
+      <span class="item-description">
+        Popular general-purpose search engine
+      </span>
+
+    </button>
+
+
+    <!-- Yandex -->
+    <button class="item"
+      onclick="openUrl('https://yandex.com/')">
+
+      <span class="item-title">
+        Yandex
+      </span>
+
+      <span class="item-description">
+        Search engine with web, images, video and more
+      </span>
+
+    </button>
+
+
+    <!-- StartPage -->
+    <button class="item"
+      onclick="openUrl('https://www.startpage.com/')">
+
+      <span class="item-title">
+        StartPage
+      </span>
+
+      <span class="item-description">
+        Privacy-focused search engine
+      </span>
+
+    </button>
+
+
+    <!-- Yahoo -->
+    <button class="item"
+      onclick="openUrl('https://search.yahoo.com/')">
+
+      <span class="item-title">
+        Yahoo
+      </span>
+
+      <span class="item-description">
+        Web search and online information service
+      </span>
+
+    </button>
+
+
+    <!-- Custom Search -->
+    <button class="item"
+      onclick="showPanel('customSearchPanel')">
+
+      <span class="item-title">
+        ➕ Custom Search Engine / URL
+      </span>
+
+      <span class="item-description">
+        Open any search engine or website of your choice
+      </span>
+
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- CUSTOM BROWSER -->
+
+<section id="customBrowserPanel" class="panel">
+
+  <button class="back" onclick="showPanel('browserPanel')">
+    ← Browser
+  </button>
+
+  <div class="custom-box">
+
+    <h2>🌐 Custom Browser / URL</h2>
+
+    <div class="notice">
+      Enter the complete website URL of the browser or website you want to open.
+    </div>
+
+    <input
+      id="customBrowserUrl"
+      type="url"
+      placeholder="https://example.com"
+      autocomplete="off"
+    >
+
+    <button class="open-button"
+      onclick="openCustomBrowser()">
+      Open Browser / URL
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- CUSTOM SEARCH -->
+
+<section id="customSearchPanel" class="panel">
+
+  <button class="back" onclick="showPanel('searchPanel')">
+    ← Search Engine
+  </button>
+
+  <div class="custom-box">
+
+    <h2>🔎 Custom Search Engine / URL</h2>
+
+    <div class="notice">
+      Enter the complete URL of any search engine or website you want to open.
+    </div>
+
+    <input
+      id="customSearchUrl"
+      type="url"
+      placeholder="https://example.com"
+      autocomplete="off"
+    >
+
+    <button class="open-button"
+      onclick="openCustomSearch()">
+      Open Search Engine / URL
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- INCOGNITO -->
+
+<section id="incognitoPanel" class="panel">
+
+  <button class="back" onclick="showPanel('browserPanel')">
+    ← Browser
+  </button>
+
+  <div class="custom-box">
+
+    <h2>🕵️ Incognito Mode</h2>
+
+    <div class="notice">
+      Incognito or Private Browsing is provided by the browser itself.
+      Smart Hub cannot create a true private browser session inside another
+      browser. Choose a browser below to open its private-browsing information.
+    </div>
+
+    <div class="item-grid">
+
+      <button class="item"
+        onclick="openUrl('https://support.google.com/chrome/answer/95464')">
+
+        <span class="item-title">
+          Chrome Incognito
+        </span>
+
+        <span class="item-description">
+          Learn about Chrome's Incognito browsing
+        </span>
+
+      </button>
+
+
+      <button class="item"
+        onclick="openUrl('https://support.mozilla.org/en-US/kb/private-browsing-use-firefox-without-history')">
+
+        <span class="item-title">
+          Firefox Private Browsing
+        </span>
+
+        <span class="item-description">
+          Learn about Firefox Private Browsing
+        </span>
+
+      </button>
+
+
+      <button class="item"
+        onclick="openUrl('https://support.microsoft.com/microsoft-edge/inprivate-browsing')">
+
+        <span class="item-title">
+          Microsoft Edge InPrivate
+        </span>
+
+        <span class="item-description">
+          Learn about Edge InPrivate browsing
+        </span>
+
+      </button>
+
+
+      <button class="item"
+        onclick="openUrl('https://www.opera.com/features/private-browsing')">
+
+        <span class="item-title">
+          Opera Private Browsing
+        </span>
+
+        <span class="item-description">
+          Learn about Opera private browsing
+        </span>
+
+      </button>
+
+    </div>
+
+  </div>
+
+</section>
+
+<footer>
+  Smart Hub — Browser & Search Engine
+</footer>
+
+</main>
+
+
+<script>
+
+function showPanel(id){
+
+  document.querySelectorAll(".panel").forEach(function(panel){
+    panel.classList.remove("active");
+  });
+
+  document.getElementById(id).classList.add("active");
+
+  window.scrollTo({
+    top:0,
+    behavior:"smooth"
+  });
+}
+
+
+function openUrl(url){
+
+  window.open(
+    url,
+    "_blank",
+    "noopener,noreferrer"
+  );
+
+}
+
+
+function openCustomBrowser(){
+
+  let url =
+    document.getElementById("customBrowserUrl").value.trim();
+
+  if(!url){
+    alert("Please enter a URL.");
+    return;
+  }
+
+  if(!/^https?:\/\//i.test(url)){
+    alert("Please enter a complete URL starting with https:// or http://");
+    return;
+  }
+
+  openUrl(url);
+
+}
+
+
+function openCustomSearch(){
+
+  let url =
+    document.getElementById("customSearchUrl").value.trim();
+
+  if(!url){
+    alert("Please enter a URL.");
+    return;
+  }
+
+  if(!/^https?:\/\//i.test(url)){
+    alert("Please enter a complete URL starting with https:// or http://");
+    return;
+  }
+
+  openUrl(url);
+
+}
+
+</script>
+
+</body>
+</html>
