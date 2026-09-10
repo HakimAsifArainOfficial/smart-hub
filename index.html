@@ -4480,3 +4480,326 @@
 
 })();
 </script>
+
+<script>
+/* =========================================================
+   SMART HUB — PART 7
+   SAFETY CHECK SYSTEM
+   ========================================================= */
+
+(function () {
+
+  function shSafetyButton(title, description, url) {
+    return `
+      <div class="sh-safety-item">
+        <div>
+          <strong>${title}</strong>
+          <small>${description}</small>
+        </div>
+
+        <button onclick="shSafetyOpen('${url}')">
+          Open
+        </button>
+      </div>
+    `;
+  }
+
+
+  window.shSafetyOpen = function (url) {
+
+    window.open(
+      url,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+  };
+
+
+  function shBuildSafetyPage() {
+
+    const page = document.getElementById("sh-safety");
+
+    if (!page) return;
+
+    page.innerHTML = `
+
+      <div class="sh-panel">
+
+        <button class="sh-back-btn"
+                onclick="shOpenPage('sh-home')">
+          ← Back
+        </button>
+
+        <h2>🛡️ Safety Check</h2>
+
+        <p class="sh-note">
+          These tools check websites, URLs, files, IP information,
+          and security configurations using external services.
+        </p>
+
+
+        <!-- WEBSITE / URL SAFETY -->
+
+        <div class="sh-safety-card">
+
+          <h3>🌐 Website & URL Safety</h3>
+
+          ${shSafetyButton(
+            "IP Address Check",
+            "Check public IP information.",
+            "https://ipinfo.io/"
+          )}
+
+          ${shSafetyButton(
+            "VirusTotal URL Check",
+            "Check a URL against multiple security engines.",
+            "https://www.virustotal.com/gui/home/url"
+          )}
+
+          ${shSafetyButton(
+            "URLVoid Check",
+            "Check website reputation and blocklists.",
+            "https://www.urlvoid.com/"
+          )}
+
+          ${shSafetyButton(
+            "Sucuri SiteCheck",
+            "Remote website malware and security scanner.",
+            "https://sitecheck.sucuri.net/"
+          )}
+
+          ${shSafetyButton(
+            "Yandex Safety Check",
+            "Check a website using Yandex's safety service.",
+            "https://yandex.com/safety/"
+          )}
+
+        </div>
+
+
+        <!-- FILE SAFETY -->
+
+        <div class="sh-safety-card">
+
+          <h3>📁 File Safety</h3>
+
+          ${shSafetyButton(
+            "VirusTotal File Check",
+            "Upload a file to VirusTotal for analysis.",
+            "https://www.virustotal.com/gui/home/upload"
+          )}
+
+          <p class="sh-warning">
+            ⚠️ Do not upload private, confidential, or sensitive
+            files to third-party scanners.
+          </p>
+
+        </div>
+
+
+        <!-- SSL / TLS -->
+
+        <div class="sh-safety-card">
+
+          <h3>🔐 SSL / TLS Security</h3>
+
+          ${shSafetyButton(
+            "SSL Labs SSL Server Test",
+            "Analyze a public web server's SSL/TLS configuration.",
+            "https://www.ssllabs.com/ssltest/"
+          )}
+
+          ${shSafetyButton(
+            "Hardenize",
+            "Review website security configuration.",
+            "https://www.hardenize.com/"
+          )}
+
+          ${shSafetyButton(
+            "MDN HTTP Observatory",
+            "Check important HTTP security headers.",
+            "https://developer.mozilla.org/en-US/observatory"
+          )}
+
+          <p class="sh-note">
+            SSL/TLS checks evaluate website/server security.
+            They do not automatically prove that an application
+            provides message-level end-to-end encryption.
+          </p>
+
+        </div>
+
+
+        <!-- AI CONTENT CHECK -->
+
+        <div class="sh-safety-card">
+
+          <h3>🤖 AI Content Check</h3>
+
+          ${shSafetyButton(
+            "AI Image Check",
+            "Check whether an image may contain AI-generated content.",
+            "https://isgen.ai/"
+          )}
+
+          ${shSafetyButton(
+            "DeepAI",
+            "AI image and content analysis tools.",
+            "https://deepai.org/"
+          )}
+
+          ${shSafetyButton(
+            "WasItAI",
+            "AI-generated image detection service.",
+            "https://wasitai.com/"
+          )}
+
+          ${shSafetyButton(
+            "ImageDetector",
+            "AI image detection service.",
+            "https://www.aidetector.com/"
+          )}
+
+          ${shSafetyButton(
+            "ZeroGPT",
+            "AI-generated text/content detection.",
+            "https://www.zerogpt.com/"
+          )}
+
+          ${shSafetyButton(
+            "AI Video Check",
+            "AI-generated video detection service.",
+            "https://www.humantext.ai/"
+          )}
+
+        </div>
+
+
+        <!-- IMPORTANT INFORMATION -->
+
+        <div class="sh-security-info">
+
+          <h3>ℹ️ Important</h3>
+
+          <p>
+            A safety checker is an external scanning service.
+            Its result should be treated as an assessment, not
+            an absolute guarantee that a website or file is safe.
+          </p>
+
+          <p>
+            Different security services can produce different
+            results because they use different databases,
+            detection methods, and scanning capabilities.
+          </p>
+
+        </div>
+
+      </div>
+    `;
+
+  }
+
+
+  /* =========================================================
+     SAFETY CHECK CSS
+     ========================================================= */
+
+  function shAddSafetyStyles() {
+
+    if (document.getElementById("shSafetyStyles")) {
+      return;
+    }
+
+    const style = document.createElement("style");
+
+    style.id = "shSafetyStyles";
+
+    style.textContent = `
+
+      .sh-safety-card {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid rgba(128,128,128,.25);
+        background: rgba(128,128,128,.06);
+      }
+
+      .sh-safety-card h3 {
+        margin-top: 0;
+        margin-bottom: 14px;
+      }
+
+      .sh-safety-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 12px;
+        background: rgba(128,128,128,.08);
+      }
+
+      .sh-safety-item div {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .sh-safety-item small {
+        opacity: .75;
+        line-height: 1.4;
+      }
+
+      .sh-safety-item button {
+        min-width: 72px;
+        padding: 9px 14px;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+
+      .sh-warning {
+        margin-top: 14px;
+        padding: 12px;
+        border-radius: 10px;
+        background: rgba(255,180,0,.10);
+        line-height: 1.5;
+      }
+
+      @media (max-width: 600px) {
+
+        .sh-safety-item {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .sh-safety-item button {
+          width: 100%;
+        }
+
+      }
+
+    `;
+
+    document.head.appendChild(style);
+
+  }
+
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+      shAddSafetyStyles();
+      shBuildSafetyPage();
+
+    }
+  );
+
+})();
+</script>
+
+
