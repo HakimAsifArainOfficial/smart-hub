@@ -487,3 +487,658 @@
   </footer>
 
 </div>
+
+<!-- ================================
+     SMART HUB — PART 2
+     Complete CSS Design
+================================= -->
+
+<style>
+
+  /* ---------- Base ---------- */
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family:
+      Arial,
+      "Noto Sans Arabic",
+      "Noto Sans",
+      sans-serif;
+
+    background: #f4f7fb;
+    color: #172033;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+
+  /* ---------- Main App ---------- */
+
+  #smartHubApp {
+    width: 100%;
+    min-height: 100vh;
+    background: #f4f7fb;
+  }
+
+
+  /* ---------- Header ---------- */
+
+  .sh-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 14px 18px;
+
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid #dfe5ee;
+
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.06);
+
+    backdrop-filter: blur(12px);
+  }
+
+
+  /* ---------- Brand ---------- */
+
+  .sh-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sh-logo {
+    width: 46px;
+    height: 46px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 14px;
+
+    background: #172033;
+    color: #ffffff;
+
+    font-size: 17px;
+    font-weight: 800;
+
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.14);
+  }
+
+  .sh-brand h1 {
+    font-size: 21px;
+    line-height: 1.2;
+    font-weight: 800;
+  }
+
+  .sh-brand p {
+    font-size: 12px;
+    color: #718096;
+    margin-top: 2px;
+  }
+
+
+  /* ---------- Menu Button ---------- */
+
+  .sh-menu-btn {
+    width: 44px;
+    height: 44px;
+
+    border: 1px solid #dfe5ee;
+    border-radius: 12px;
+
+    background: #ffffff;
+    color: #172033;
+
+    cursor: pointer;
+
+    font-size: 23px;
+
+    transition: 0.2s ease;
+  }
+
+  .sh-menu-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .sh-menu-btn:active {
+    transform: scale(0.96);
+  }
+
+
+  /* ---------- Main ---------- */
+
+  .sh-main {
+    width: 100%;
+    max-width: 1150px;
+
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+  }
+
+
+  /* ---------- Pages ---------- */
+
+  .sh-page {
+    display: none;
+    animation: shFadeIn 0.22s ease;
+  }
+
+  .sh-page.sh-active {
+    display: block;
+  }
+
+  @keyframes shFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+
+  /* ---------- Welcome ---------- */
+
+  .sh-welcome {
+    padding: 24px;
+    margin-bottom: 20px;
+
+    border: 1px solid #dfe5ee;
+    border-radius: 20px;
+
+    background: #ffffff;
+
+    box-shadow: 0 7px 25px rgba(0, 0, 0, 0.05);
+  }
+
+  .sh-welcome h2 {
+    font-size: 25px;
+    margin-bottom: 6px;
+  }
+
+  .sh-welcome p {
+    color: #657184;
+    font-size: 14px;
+  }
+
+
+  /* ---------- Home Grid ---------- */
+
+  .sh-grid {
+    display: grid;
+
+    grid-template-columns:
+      repeat(auto-fit, minmax(220px, 1fr));
+
+    gap: 14px;
+  }
+
+
+  /* ---------- Home Cards ---------- */
+
+  .sh-card {
+    width: 100%;
+    min-height: 155px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+
+    text-align: left;
+
+    padding: 20px;
+
+    border: 1px solid #dfe5ee;
+    border-radius: 18px;
+
+    background: #ffffff;
+    color: #172033;
+
+    cursor: pointer;
+
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.045);
+
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      border-color 0.18s ease;
+  }
+
+  .sh-card:hover {
+    transform: translateY(-3px);
+
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.09);
+
+    border-color: #bcc7d8;
+  }
+
+  .sh-card:active {
+    transform: scale(0.985);
+  }
+
+  .sh-card-icon {
+    font-size: 31px;
+    margin-bottom: 10px;
+  }
+
+  .sh-card-title {
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .sh-card-text {
+    color: #718096;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+
+  /* ---------- Page Heading ---------- */
+
+  .sh-page > h2 {
+    margin: 18px 0 18px;
+
+    font-size: 25px;
+    font-weight: 800;
+  }
+
+
+  /* ---------- Back Button ---------- */
+
+  .sh-back {
+    border: 1px solid #dfe5ee;
+    border-radius: 11px;
+
+    padding: 9px 13px;
+
+    background: #ffffff;
+    color: #172033;
+
+    cursor: pointer;
+
+    transition: 0.18s ease;
+  }
+
+  .sh-back:hover {
+    background: #eef2f7;
+  }
+
+
+  /* ---------- Panels ---------- */
+
+  .sh-panel {
+    margin-bottom: 16px;
+
+    padding: 20px;
+
+    border: 1px solid #dfe5ee;
+    border-radius: 18px;
+
+    background: #ffffff;
+
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.045);
+  }
+
+  .sh-panel h3 {
+    font-size: 17px;
+    margin-bottom: 7px;
+  }
+
+  .sh-panel p {
+    color: #657184;
+    font-size: 13px;
+    margin-bottom: 13px;
+  }
+
+
+  /* ---------- Inputs ---------- */
+
+  .sh-input {
+    width: 100%;
+
+    margin-top: 7px;
+    margin-bottom: 13px;
+
+    padding: 12px 13px;
+
+    border: 1px solid #cfd7e3;
+    border-radius: 11px;
+
+    background: #ffffff;
+    color: #172033;
+
+    outline: none;
+
+    transition:
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .sh-input:focus {
+    border-color: #7b8798;
+
+    box-shadow:
+      0 0 0 3px rgba(123, 135, 152, 0.13);
+  }
+
+  textarea.sh-input {
+    min-height: 110px;
+    resize: vertical;
+  }
+
+
+  /* ---------- Labels ---------- */
+
+  .sh-panel label {
+    display: block;
+
+    margin-top: 7px;
+    margin-bottom: 2px;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    color: #3f4b5d;
+  }
+
+
+  /* ---------- Primary Button ---------- */
+
+  .sh-primary-btn {
+    width: 100%;
+
+    padding: 12px 15px;
+
+    border: none;
+    border-radius: 11px;
+
+    background: #172033;
+    color: #ffffff;
+
+    cursor: pointer;
+
+    font-weight: 700;
+
+    transition:
+      transform 0.18s ease,
+      opacity 0.18s ease;
+  }
+
+  .sh-primary-btn:hover {
+    opacity: 0.9;
+  }
+
+  .sh-primary-btn:active {
+    transform: scale(0.985);
+  }
+
+
+  /* ---------- Service Buttons ---------- */
+
+  .sh-service-btn {
+    width: 100%;
+
+    display: block;
+
+    margin-bottom: 9px;
+
+    padding: 12px 14px;
+
+    border: 1px solid #d6dde8;
+    border-radius: 11px;
+
+    background: #f9fbfd;
+    color: #172033;
+
+    text-align: left;
+
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      transform 0.18s ease;
+  }
+
+  .sh-service-btn:hover {
+    background: #eef2f7;
+    border-color: #bcc7d8;
+  }
+
+  .sh-service-btn:active {
+    transform: scale(0.99);
+  }
+
+
+  /* ---------- AI Answer ---------- */
+
+  .sh-ai-answer {
+    min-height: 70px;
+
+    margin-top: 15px;
+    padding: 14px;
+
+    border: 1px dashed #cbd4e0;
+    border-radius: 12px;
+
+    background: #f8fafc;
+
+    color: #536174;
+
+    font-size: 13px;
+  }
+
+
+  /* ---------- Footer ---------- */
+
+  .sh-footer {
+    width: 100%;
+
+    padding: 25px 15px 30px;
+
+    text-align: center;
+
+    border-top: 1px solid #dfe5ee;
+
+    color: #7a8595;
+
+    background: #ffffff;
+
+    font-size: 12px;
+  }
+
+  .sh-footer p:first-child {
+    font-weight: 800;
+    color: #4b5667;
+    margin-bottom: 3px;
+  }
+
+
+  /* ---------- Mobile ---------- */
+
+  @media (max-width: 600px) {
+
+    .sh-header {
+      padding: 11px 13px;
+    }
+
+    .sh-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+    }
+
+    .sh-brand h1 {
+      font-size: 19px;
+    }
+
+    .sh-main {
+      padding:
+        18px 12px 30px;
+    }
+
+    .sh-welcome {
+      padding: 19px;
+      border-radius: 17px;
+    }
+
+    .sh-welcome h2 {
+      font-size: 22px;
+    }
+
+    .sh-grid {
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+      gap: 10px;
+    }
+
+    .sh-card {
+      min-height: 145px;
+      padding: 15px;
+      border-radius: 15px;
+    }
+
+    .sh-card-icon {
+      font-size: 27px;
+    }
+
+    .sh-card-title {
+      font-size: 14px;
+    }
+
+    .sh-card-text {
+      font-size: 11px;
+    }
+
+    .sh-panel {
+      padding: 16px;
+      border-radius: 15px;
+    }
+
+    .sh-page > h2 {
+      font-size: 22px;
+    }
+  }
+
+
+  /* ---------- Very Small Screens ---------- */
+
+  @media (max-width: 350px) {
+
+    .sh-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .sh-card {
+      min-height: 125px;
+    }
+  }
+
+
+  /* ---------- Dark Mode ---------- */
+
+  body.sh-dark,
+  body.sh-dark #smartHubApp {
+    background: #10141c;
+    color: #edf2f7;
+  }
+
+  body.sh-dark .sh-header,
+  body.sh-dark .sh-panel,
+  body.sh-dark .sh-card,
+  body.sh-dark .sh-welcome,
+  body.sh-dark .sh-footer,
+  body.sh-dark .sh-back,
+  body.sh-dark .sh-menu-btn {
+    background: #171d28;
+    color: #edf2f7;
+    border-color: #2b3545;
+  }
+
+  body.sh-dark .sh-card-text,
+  body.sh-dark .sh-welcome p,
+  body.sh-dark .sh-panel p,
+  body.sh-dark .sh-brand p {
+    color: #aab5c5;
+  }
+
+  body.sh-dark .sh-service-btn {
+    background: #1d2532;
+    color: #edf2f7;
+    border-color: #354154;
+  }
+
+  body.sh-dark .sh-service-btn:hover {
+    background: #263142;
+  }
+
+  body.sh-dark .sh-input {
+    background: #111721;
+    color: #edf2f7;
+    border-color: #354154;
+  }
+
+  body.sh-dark .sh-ai-answer {
+    background: #111721;
+    color: #b7c1d0;
+    border-color: #354154;
+  }
+
+  body.sh-dark .sh-footer {
+    color: #8f9bad;
+  }
+
+
+  /* ---------- Reduced Motion ---------- */
+
+  @media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+
+  }
+
+</style>
