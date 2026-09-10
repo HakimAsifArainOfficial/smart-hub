@@ -8349,3 +8349,559 @@
 
 })();
 </script>
+
+<!-- =========================================================
+     SMART HUB — PART 11
+     FINAL INTEGRATION & CLEANUP
+     ========================================================= -->
+
+<script>
+(function () {
+    "use strict";
+
+    /* =========================================================
+       1. SAFE PAGE NAVIGATION
+       ========================================================= */
+
+    window.shOpenPage = function (pageId) {
+        const pages = document.querySelectorAll("[id^='sh-']");
+
+        pages.forEach(function (page) {
+            page.classList.remove("active");
+            page.style.display = "none";
+        });
+
+        const target = document.getElementById(pageId);
+
+        if (target) {
+            target.classList.add("active");
+            target.style.display = "block";
+        }
+
+        /* Close menu if available */
+        const menu = document.getElementById("shMenu");
+        if (menu) {
+            menu.classList.remove("show");
+        }
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+
+        /* Refresh dynamic pages when opened */
+        try {
+            if (pageId === "sh-password" &&
+                typeof window.shRenderSecureVault === "function") {
+                window.shRenderSecureVault();
+            }
+
+            if (pageId === "sh-settings" &&
+                typeof window.shLoadSettings === "function") {
+                window.shLoadSettings();
+            }
+
+            if (pageId === "sh-web" &&
+                typeof window.shLoadMyWeb === "function") {
+                window.shLoadMyWeb();
+            }
+        } catch (error) {
+            console.warn("Smart Hub page refresh warning:", error);
+        }
+    };
+
+
+    /* =========================================================
+       2. MENU TOGGLE
+       ========================================================= */
+
+    window.shToggleMenu = function () {
+        const menu = document.getElementById("shMenu");
+
+        if (!menu) return;
+
+        menu.classList.toggle("show");
+    };
+
+
+    /* =========================================================
+       3. CLOSE MENU WHEN CLICKING OUTSIDE
+       ========================================================= */
+
+    document.addEventListener("click", function (event) {
+        const menu = document.getElementById("shMenu");
+        const button = document.querySelector(
+            "[onclick*='shToggleMenu']"
+        );
+
+        if (!menu) return;
+
+        if (
+            !menu.contains(event.target) &&
+            (!button || !button.contains(event.target))
+        ) {
+            menu.classList.remove("show");
+        }
+    });
+
+
+    /* =========================================================
+       4. SEARCH ENGINE CUSTOM URL NORMALIZER
+       ========================================================= */
+
+    window.shBuildSearchUrl = function (engine, query) {
+
+        const encodedQuery = encodeURIComponent(
+            String(query || "").trim()
+        );
+
+        const engines = {
+            duckduckgo:
+                "https://duckduckgo.com/?q=",
+
+            yandex:
+                "https://yandex.com/search/?text=",
+
+            bing:
+                "https://www.bing.com/search?q=",
+
+            yahoo:
+                "https://search.yahoo.com/search?p=",
+
+            startpage:
+                "https://www.startpage.com/sp/search?query=",
+
+            ecosia:
+                "https://www.ecosia.org/search?q=",
+
+            mojeek:
+                "https://www.mojeek.com/search?q=",
+
+            swisscows:
+                "https://swisscows.com/en/web?query=",
+
+            gibiru:
+                "https://gibiru.com/results.html?q=",
+
+            metager:
+                "https://metager.org/meta/meta.ger3?eingabe=",
+
+            searxng:
+                "https://searx.be/search?q=",
+
+            qwant:
+                "https://www.qwant.com/?q=",
+
+            opera:
+                "https://www.google.com/search?q="
+        };
+
+        const key = String(engine || "")
+            .toLowerCase()
+            .replace(/\s+/g, "")
+            .replace(/-/g, "");
+
+        if (engines[key]) {
+            return engines[key] + encodedQuery;
+        }
+
+        /* Custom search engine */
+        if (typeof engine === "string" &&
+            engine.trim() !== "") {
+
+            let custom = engine.trim();
+
+            if (custom.indexOf("{query}") !== -1) {
+                return custom.replace(
+                    "{query}",
+                    encodedQuery
+                );
+            }
+
+            if (
+                custom.indexOf("?") === -1 &&
+                !custom.endsWith("/")
+            ) {
+                custom += "/";
+            }
+
+            return custom +
+                (custom.indexOf("?") !== -1 ? "&q=" : "?q=") +
+                encodedQuery;
+        }
+
+        return "https://duckduckgo.com/?q=" +
+            encodedQuery;
+    };
+
+
+    /* =========================================================
+       5. SMART HUB SETTINGS — SAFE APPEARANCE
+       ========================================================= */
+
+    window.shApplyFinalAppearance = function () {
+
+        let settings = {};
+
+        try {
+            settings = JSON.parse(
+                localStorage.getItem("smartHubSettings") || "{}"
+            );
+        } catch (error) {
+            settings = {};
+        }
+
+        const appearance =
+            settings.appearance || "system";
+
+        document.body.classList.remove(
+            "sh-light-mode",
+            "sh-dark-mode"
+        );
+
+        if (appearance === "dark") {
+            document.body.classList.add("sh-dark-mode");
+        }
+
+        if (appearance === "light") {
+            document.body.classList.add("sh-light-mode");
+        }
+
+        /*
+         System mode intentionally does not force
+         light or dark. CSS media rules can handle it.
+        */
+    };
+
+
+    /* =========================================================
+       6. SETTINGS CHANGE LISTENER
+       ========================================================= */
+
+    window.shSaveFinalSetting = function (name, value) {
+
+        let settings = {};
+
+        try {
+            settings = JSON.parse(
+                localStorage.getItem("smartHubSettings") || "{}"
+            );
+        } catch (error) {
+            settings = {};
+        }
+
+        settings[name] = value;
+
+        localStorage.setItem(
+            "smartHubSettings",
+            JSON.stringify(settings)
+        );
+
+        if (name === "appearance") {
+            window.shApplyFinalAppearance();
+        }
+    };
+
+
+    /* =========================================================
+       7. SECURE VAULT — AUTO LOCK
+       ========================================================= */
+
+    let shSecureAutoLockTimer = null;
+
+    window.shStartSecureAutoLock = function () {
+
+        if (shSecureAutoLockTimer) {
+            clearTimeout(shSecureAutoLockTimer);
+        }
+
+        let settings = {};
+
+        try {
+            settings = JSON.parse(
+                localStorage.getItem("smartHubSettings") || "{}"
+            );
+        } catch (error) {
+            settings = {};
+        }
+
+        /*
+         Default: 15 minutes.
+         */
+        let minutes = Number(
+            settings.passwordAutoLock ||
+            settings.autoLockMinutes ||
+            15
+        );
+
+        if (!Number.isFinite(minutes) || minutes < 1) {
+            minutes = 15;
+        }
+
+        shSecureAutoLockTimer = setTimeout(function () {
+
+            try {
+
+                if (
+                    typeof window.shSecureLock === "function"
+                ) {
+                    window.shSecureLock();
+                }
+
+                if (
+                    typeof window.shRenderSecureVault === "function"
+                ) {
+                    window.shRenderSecureVault();
+                }
+
+            } catch (error) {
+                console.warn(
+                    "Secure vault auto-lock warning:",
+                    error
+                );
+            }
+
+        }, minutes * 60 * 1000);
+    };
+
+
+    /* =========================================================
+       8. RESET AUTO-LOCK TIMER AFTER USER ACTIVITY
+       ========================================================= */
+
+    function shResetSecureActivityTimer() {
+
+        try {
+
+            if (
+                typeof window.shSecureVaultUnlocked !== "undefined" &&
+                window.shSecureVaultUnlocked === true
+            ) {
+                window.shStartSecureAutoLock();
+            }
+
+        } catch (error) {
+            /* Ignore activity timer errors */
+        }
+    }
+
+    document.addEventListener(
+        "click",
+        shResetSecureActivityTimer,
+        true
+    );
+
+    document.addEventListener(
+        "keydown",
+        shResetSecureActivityTimer,
+        true
+    );
+
+
+    /* =========================================================
+       9. LEGACY PLAINTEXT PASSWORD DATA WARNING
+       ========================================================= */
+
+    window.shCheckLegacyPasswordData = function () {
+
+        const legacyKey =
+            "smartHubPasswordManager";
+
+        const oldData =
+            localStorage.getItem(legacyKey);
+
+        if (!oldData) {
+            return false;
+        }
+
+        console.warn(
+            "Smart Hub: legacy password data exists in localStorage."
+        );
+
+        return true;
+    };
+
+
+    /* =========================================================
+       10. REMOVE OLD PLAINTEXT PASSWORD DATA
+       ========================================================= */
+
+    window.shRemoveLegacyPasswordData = function () {
+
+        const legacyKey =
+            "smartHubPasswordManager";
+
+        if (!localStorage.getItem(legacyKey)) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            "پرانی Password Manager data کو delete کرنا ہے؟\n\n" +
+            "یہ data secure vault کے باہر موجود ہے۔\n\n" +
+            "اگر آپ نے پرانی entries secure vault میں منتقل نہیں کیں " +
+            "تو پہلے انہیں محفوظ کر لیں۔"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        localStorage.removeItem(legacyKey);
+
+        alert(
+            "پرانی Password Manager data delete کر دی گئی ہے۔"
+        );
+
+        try {
+            if (
+                typeof window.shRenderSecureVault === "function"
+            ) {
+                window.shRenderSecureVault();
+            }
+        } catch (error) {
+            console.warn(error);
+        }
+    };
+
+
+    /* =========================================================
+       11. CLIPBOARD SAFETY
+       ========================================================= */
+
+    window.shSecureCopyText = async function (
+        text,
+        clearAfterSeconds
+    ) {
+
+        if (!navigator.clipboard) {
+            alert(
+                "اس browser میں Clipboard access دستیاب نہیں ہے۔"
+            );
+            return false;
+        }
+
+        try {
+
+            await navigator.clipboard.writeText(
+                String(text || "")
+            );
+
+            const seconds =
+                Number(clearAfterSeconds) || 30;
+
+            setTimeout(async function () {
+
+                /*
+                 Clipboard automatically clear کرنا
+                 browser permissions پر depend کرتا ہے۔
+                */
+
+                try {
+                    await navigator.clipboard.writeText("");
+                } catch (error) {
+                    console.warn(
+                        "Clipboard auto-clear unavailable:",
+                        error
+                    );
+                }
+
+            }, seconds * 1000);
+
+            return true;
+
+        } catch (error) {
+
+            console.warn(
+                "Clipboard copy failed:",
+                error
+            );
+
+            alert(
+                "Clipboard میں copy نہیں ہو سکا۔"
+            );
+
+            return false;
+        }
+    };
+
+
+    /* =========================================================
+       12. DO NOT STORE MASTER PASSWORD
+       ========================================================= */
+
+    window.shNeverStoreMasterPassword = function () {
+
+        /*
+         Important security rule:
+         Master Password کو localStorage,
+         sessionStorage یا کسی HTML field میں
+         مستقل طور پر محفوظ نہیں کیا جائے گا۔
+        */
+
+        try {
+            sessionStorage.removeItem(
+                "smartHubMasterPassword"
+            );
+        } catch (error) {
+            /* Ignore */
+        }
+    };
+
+
+    /* =========================================================
+       13. LEGACY DATA CHECK ON START
+       ========================================================= */
+
+    function shFinalSecurityCheck() {
+
+        window.shNeverStoreMasterPassword();
+
+        window.shCheckLegacyPasswordData();
+
+        window.shApplyFinalAppearance();
+
+        if (
+            typeof window.shStartSecureAutoLock === "function"
+        ) {
+            window.shStartSecureAutoLock();
+        }
+    }
+
+
+    /* =========================================================
+       14. FINAL INITIALIZATION
+       ========================================================= */
+
+    if (document.readyState === "loading") {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            shFinalSecurityCheck
+        );
+
+    } else {
+
+        shFinalSecurityCheck();
+    }
+
+
+    /* =========================================================
+       15. SECURITY INFORMATION
+       ========================================================= */
+
+    window.smartHubSecurityInfo = {
+        vaultEncryption: "AES-256-GCM",
+        keyDerivation: "Argon2id",
+        masterPasswordStorage: "Never stored as plaintext",
+        clipboardAutoClear: "Best effort",
+        systemFirewall: "Not controlled by Smart Hub",
+        phoneAccess: "Not allowed by Smart Hub Web App"
+    };
+
+
+    console.log(
+        "Smart Hub Part 11 loaded successfully."
+    );
+
+})();
+</script>
