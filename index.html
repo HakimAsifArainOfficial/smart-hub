@@ -8993,8 +8993,11 @@
             );
             return;
         }
-
-      
+       
+           window.open(
+            cleanUrl,
+            "_blank",
+            "noopener,noreferrer"
         );
     };
 
@@ -9068,7 +9071,9 @@
         );
     };
 
-
+/* =========================================================
+       8. FINAL APP INFORMATION
+       ========================================================= */
 
     window.smartHubAppInfo = {
         name: "Smart Hub",
@@ -9081,3 +9086,22 @@
         complaint:
             "Direct complaint channel, separate from AI"
     };
+
+ /* =========================================================
+       9. FINAL CONSOLE MESSAGE
+       ========================================================= */
+
+    console.log(
+        "Smart Hub Final Security Cleanup loaded."
+    );
+
+})();
+</script>
+
+<!-- =========================================================
+     SMART HUB — END OF APPLICATION
+     ========================================================= -->
+
+</div>
+</body>
+</html>
