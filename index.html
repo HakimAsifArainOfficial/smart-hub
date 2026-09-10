@@ -5354,3 +5354,543 @@
 
 })();
      </script>
+
+<script>
+/* =========================================================
+   SMART HUB — PART 9
+   AI ASSISTANT
+   ========================================================= */
+
+(function () {
+
+  const SH_AI_SOURCES = {
+    blog: "https://hakimasifarainofficial.blogspot.com/",
+    youtube: "https://www.youtube.com/@Asif_Arain171",
+    website: ""
+  };
+
+
+  function shBuildAiPage() {
+
+    const page = document.getElementById("sh-ai");
+
+    if (!page) return;
+
+    page.innerHTML = `
+
+      <div class="sh-panel">
+
+        <button class="sh-back-btn"
+                onclick="shOpenPage('sh-home')">
+          ← Back
+        </button>
+
+        <h2>🤖 AI Assistant</h2>
+
+        <p class="sh-note">
+          Ask the Smart Hub AI Assistant for information
+          within its permitted connected-source scope.
+        </p>
+
+
+        <!-- AI QUESTION -->
+
+        <div class="sh-ai-card">
+
+          <h3>💬 Ask AI</h3>
+
+          <label for="shAiQuestion">
+            Your Question
+          </label>
+
+          <textarea
+            id="shAiQuestion"
+            rows="6"
+            maxlength="3000"
+            placeholder="Write your question here..."
+          ></textarea>
+
+          <button
+            class="sh-primary-btn"
+            onclick="shAskAi()">
+            🤖 Ask AI
+          </button>
+
+        </div>
+
+
+        <!-- AI ANSWER -->
+
+        <div
+          id="shAiAnswer"
+          class="sh-ai-answer"
+          aria-live="polite">
+
+          <h3>🤖 AI Answer</h3>
+
+          <p>
+            Your AI answer will appear here.
+          </p>
+
+        </div>
+
+
+        <!-- CONNECTED SOURCES -->
+
+        <div class="sh-ai-card">
+
+          <h3>🔗 Connected Sources</h3>
+
+          <div class="sh-ai-source">
+
+            <strong>📝 My Blog</strong>
+
+            <p>
+              Public information from the connected blog.
+            </p>
+
+            <button
+              onclick="shAiOpenSource('blog')">
+              Open Blog
+            </button>
+
+          </div>
+
+
+          <div class="sh-ai-source">
+
+            <strong>▶️ My YouTube Channel</strong>
+
+            <p>
+              Public information from the connected
+              YouTube Channel.
+            </p>
+
+            <button
+              onclick="shAiOpenSource('youtube')">
+              Open YouTube
+            </button>
+
+          </div>
+
+
+          <div class="sh-ai-source">
+
+            <strong>🌍 My Website</strong>
+
+            <p id="shAiWebsiteStatus">
+              Website connection has not been configured yet.
+            </p>
+
+            <button
+              onclick="shAiOpenSource('website')">
+              Open Website
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- ACCESS SCOPE -->
+
+        <div class="sh-ai-card">
+
+          <h3>🔒 AI Access Scope</h3>
+
+          <ul class="sh-ai-list">
+
+            <li>
+              ✅ Smart Hub Web App
+            </li>
+
+            <li>
+              ✅ Public information from connected Blog
+            </li>
+
+            <li>
+              ✅ Public information from connected YouTube Channel
+            </li>
+
+            <li>
+              ✅ Public information from connected Website
+            </li>
+
+            <li>
+              ❌ Private passwords
+            </li>
+
+            <li>
+              ❌ Private files
+            </li>
+
+            <li>
+              ❌ Private photos
+            </li>
+
+            <li>
+              ❌ Private contacts
+            </li>
+
+            <li>
+              ❌ Other applications
+            </li>
+
+            <li>
+              ❌ Unrelated private accounts
+            </li>
+
+            <li>
+              ❌ Login-only or draft content
+            </li>
+
+          </ul>
+
+        </div>
+
+
+        <!-- GENERAL INFORMATION -->
+
+        <div class="sh-ai-card">
+
+          <h3>📚 General Information</h3>
+
+          <p>
+            The AI Assistant can provide general information
+            through the AI system, subject to the access and
+            source permissions configured for Smart Hub.
+          </p>
+
+          <p>
+            Information supplied by the user can also be
+            processed by the AI when the relevant AI service
+            receives that information.
+          </p>
+
+        </div>
+
+
+        <!-- COMPLAINT SEPARATION -->
+
+        <div class="sh-ai-card sh-ai-complaint">
+
+          <h3>📩 Complaint</h3>
+
+          <p>
+            The AI Assistant does not receive or decide
+            complaints.
+          </p>
+
+          <button
+            class="sh-primary-btn"
+            onclick="shOpenPage('sh-complaint')">
+            Open Complaint System
+          </button>
+
+        </div>
+
+
+        <!-- AI STATUS -->
+
+        <div
+          id="shAiStatus"
+          class="sh-ai-status">
+
+          AI Assistant is ready.
+
+        </div>
+
+      </div>
+    `;
+
+    shUpdateAiWebsiteStatus();
+  }
+
+
+  /* =========================================================
+     ASK AI
+     ========================================================= */
+
+  window.shAskAi = function () {
+
+    const input =
+      document.getElementById("shAiQuestion");
+
+    const answer =
+      document.getElementById("shAiAnswer");
+
+    const status =
+      document.getElementById("shAiStatus");
+
+
+    if (!input || !answer) {
+      return;
+    }
+
+
+    const question =
+      input.value.trim();
+
+
+    if (!question) {
+
+      answer.innerHTML = `
+        <h3>🤖 AI Answer</h3>
+        <p>
+          Please write a question first.
+        </p>
+      `;
+
+      return;
+    }
+
+
+    /*
+      IMPORTANT:
+      This front-end function does NOT pretend to be a real AI.
+
+      A real AI API/backend must be connected separately.
+      The backend must enforce the allowed-source scope.
+    */
+
+
+    answer.innerHTML = `
+      <h3>🤖 AI Answer</h3>
+
+      <p>
+        Your question has been prepared for the AI Assistant.
+      </p>
+
+      <div class="sh-ai-question-preview">
+        ${shEscapeAiText(question)}
+      </div>
+
+      <p class="sh-ai-placeholder">
+        AI connection is not configured in this Web App yet.
+        A secure AI backend/API must be connected before
+        real AI answers are enabled.
+      </p>
+    `;
+
+
+    if (status) {
+
+      status.textContent =
+        "Question prepared. AI backend connection required.";
+
+    }
+  };
+
+
+  /* =========================================================
+     CONNECTED SOURCES
+     ========================================================= */
+
+  window.shAiOpenSource = function (source) {
+
+    const url =
+      SH_AI_SOURCES[source];
+
+
+    if (!url) {
+
+      alert(
+        "This website has not been configured yet."
+      );
+
+      return;
+    }
+
+
+    window.open(
+      url,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
+
+
+  function shUpdateAiWebsiteStatus() {
+
+    const status =
+      document.getElementById(
+        "shAiWebsiteStatus"
+      );
+
+    if (!status) return;
+
+
+    if (SH_AI_SOURCES.website) {
+
+      status.textContent =
+        "Public information from the connected website.";
+
+    } else {
+
+      status.textContent =
+        "Website connection has not been configured yet.";
+
+    }
+  }
+
+
+  /* =========================================================
+     SAFE TEXT OUTPUT
+     ========================================================= */
+
+  function shEscapeAiText(text) {
+
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;")
+      .replace(/\n/g, "<br>");
+  }
+
+
+  /* =========================================================
+     AI CSS
+     ========================================================= */
+
+  function shAddAiStyles() {
+
+    if (
+      document.getElementById(
+        "shAiStyles"
+      )
+    ) {
+      return;
+    }
+
+
+    const style =
+      document.createElement("style");
+
+    style.id =
+      "shAiStyles";
+
+
+    style.textContent = `
+
+      .sh-ai-card,
+      .sh-ai-answer {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid rgba(128,128,128,.25);
+        background: rgba(128,128,128,.06);
+      }
+
+
+      .sh-ai-card h3,
+      .sh-ai-answer h3 {
+        margin-top: 0;
+      }
+
+
+      .sh-ai-card textarea {
+        width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 130px;
+      }
+
+
+      .sh-ai-source {
+        margin-top: 12px;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(128,128,128,.08);
+      }
+
+
+      .sh-ai-source strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+
+      .sh-ai-source p {
+        opacity: .8;
+        line-height: 1.5;
+      }
+
+
+      .sh-ai-source button {
+        padding: 9px 14px;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+
+
+      .sh-ai-list {
+        line-height: 1.8;
+        padding-left: 22px;
+      }
+
+
+      .sh-ai-complaint {
+        border-style: dashed;
+      }
+
+
+      .sh-ai-status {
+        margin-top: 18px;
+        padding: 12px;
+        border-radius: 10px;
+        background: rgba(128,128,128,.08);
+        opacity: .85;
+      }
+
+
+      .sh-ai-question-preview {
+        margin: 12px 0;
+        padding: 12px;
+        border-radius: 10px;
+        background: rgba(128,128,128,.08);
+        line-height: 1.6;
+        word-break: break-word;
+      }
+
+
+      .sh-ai-placeholder {
+        opacity: .8;
+        line-height: 1.6;
+      }
+
+
+      @media (max-width: 600px) {
+
+        .sh-ai-card,
+        .sh-ai-answer {
+          padding: 14px;
+        }
+
+      }
+
+    `;
+
+
+    document.head.appendChild(style);
+  }
+
+
+  /* =========================================================
+     INITIALIZATION
+     ========================================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+      shBuildAiPage();
+      shAddAiStyles();
+
+    }
+  );
+
+})();
+</script>
