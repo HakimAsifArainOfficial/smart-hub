@@ -2396,3 +2396,1152 @@
   );
 
 </script>
+
+<!-- =========================================
+     SMART HUB — PART 5
+     Password Manager
+========================================= -->
+
+<script>
+
+  /* =========================================
+     PASSWORD MANAGER STATE
+  ========================================= */
+
+  const shPasswordManager = {
+
+    entries: [],
+
+    unlocked: false,
+
+    autoLockMinutes: 10,
+
+    clipboardTimer: null
+
+  };
+
+
+  /* =========================================
+     PASSWORD MANAGER STORAGE
+  ========================================= */
+
+  function shPMGetStoredData() {
+
+    const data =
+      localStorage.getItem(
+        "sh_password_entries"
+      );
+
+    if (!data) {
+      return [];
+    }
+
+    try {
+
+      const parsed =
+        JSON.parse(data);
+
+      return Array.isArray(parsed)
+        ? parsed
+        : [];
+
+    } catch (error) {
+
+      return [];
+
+    }
+
+  }
+
+
+  function shPMSaveData() {
+
+    /*
+      IMPORTANT:
+      This is temporary local storage.
+      The final secure vault will use
+      proper authenticated encryption.
+    */
+
+    localStorage.setItem(
+      "sh_password_entries",
+      JSON.stringify(
+        shPasswordManager.entries
+      )
+    );
+
+  }
+
+
+  /* =========================================
+     PASSWORD VISIBILITY
+  ========================================= */
+
+  function shPMTogglePassword() {
+
+    const input =
+      document.getElementById(
+        "sh-pm-password"
+      );
+
+    const button =
+      document.getElementById(
+        "sh-pm-show"
+      );
+
+
+    if (!input || !button) {
+      return;
+    }
+
+
+    if (input.type === "password") {
+
+      input.type = "text";
+
+      button.textContent =
+        "🙈 Hide Password";
+
+    } else {
+
+      input.type = "password";
+
+      button.textContent =
+        "👁️ Show Password";
+
+    }
+
+  }
+
+
+  /* =========================================
+     MASTER PASSWORD
+  ========================================= */
+
+  function shPMCreateMasterPassword() {
+
+    const input =
+      document.getElementById(
+        "sh-pm-master-password"
+      );
+
+
+    if (!input) {
+      return;
+    }
+
+
+    const password =
+      input.value;
+
+
+    if (password.length < 10) {
+
+      alert(
+        "Vault Master Password کم از کم 10 characters کا رکھیں۔"
+      );
+
+      input.focus();
+
+      return;
+
+    }
+
+
+    /*
+      Temporary setup marker.
+      Real cryptographic vault setup
+      will be added in the secure vault stage.
+    */
+
+    localStorage.setItem(
+      "sh_pm_vault_initialized",
+      "true"
+    );
+
+
+    alert(
+      "Vault Master Password setup مکمل ہوگیا۔"
+    );
+
+
+    input.value = "";
+
+    shPMUpdateLockStatus();
+
+  }
+
+
+  /* =========================================
+     LOCK / UNLOCK
+  ========================================= */
+
+  function shPMLock() {
+
+    shPasswordManager.unlocked =
+      false;
+
+
+    const panel =
+      document.getElementById(
+        "sh-pm-vault-content"
+      );
+
+
+    if (panel) {
+
+      panel.style.display =
+        "none";
+
+    }
+
+
+    shPMUpdateLockStatus();
+
+  }
+
+
+  function shPMUnlock() {
+
+    const input =
+      document.getElementById(
+        "sh-pm-unlock-password"
+      );
+
+
+    if (!input) {
+      return;
+    }
+
+
+    if (!localStorage.getItem(
+      "sh_pm_vault_initialized"
+    )) {
+
+      alert(
+        "پہلے Vault Master Password بنائیں۔"
+      );
+
+      return;
+
+    }
+
+
+    if (!input.value) {
+
+      alert(
+        "Vault Master Password درج کریں۔"
+      );
+
+      return;
+
+    }
+
+
+    /*
+      Temporary unlock state.
+      The final version will verify the
+      password against the encrypted vault.
+    */
+
+    shPasswordManager.unlocked =
+      true;
+
+
+    input.value = "";
+
+
+    const panel =
+      document.getElementById(
+        "sh-pm-vault-content"
+      );
+
+
+    if (panel) {
+
+      panel.style.display =
+        "block";
+
+    }
+
+
+    shPMUpdateLockStatus();
+
+    shPMRenderEntries();
+
+    shPMStartAutoLock();
+
+  }
+
+
+  function shPMUpdateLockStatus() {
+
+    const status =
+      document.getElementById(
+        "sh-pm-lock-status"
+      );
+
+
+    if (!status) {
+      return;
+    }
+
+
+    if (
+      shPasswordManager.unlocked
+    ) {
+
+      status.textContent =
+        "🔓 Vault Unlocked";
+
+    } else {
+
+      status.textContent =
+        "🔒 Vault Locked";
+
+    }
+
+  }
+
+
+  /* =========================================
+     ADD PASSWORD ENTRY
+  ========================================= */
+
+  function shPMAddEntry() {
+
+    if (
+      !shPasswordManager.unlocked
+    ) {
+
+      alert(
+        "پہلے Vault Unlock کریں۔"
+      );
+
+      return;
+
+    }
+
+
+    const title =
+      document
+        .getElementById(
+          "sh-pm-title"
+        )
+        .value
+        .trim();
+
+
+    const username =
+      document
+        .getElementById(
+          "sh-pm-username"
+        )
+        .value
+        .trim();
+
+
+    const password =
+      document
+        .getElementById(
+          "sh-pm-password"
+        )
+        .value;
+
+
+    const description =
+      document
+        .getElementById(
+          "sh-pm-description"
+        )
+        .value
+        .trim();
+
+
+    if (!title) {
+
+      alert(
+        "Name / Title درج کریں۔"
+      );
+
+      return;
+
+    }
+
+
+    if (!password) {
+
+      alert(
+        "Password درج کریں۔"
+      );
+
+      return;
+
+    }
+
+
+    if (
+      description.length > 100
+    ) {
+
+      alert(
+        "Description زیادہ سے زیادہ 100 characters کی ہوسکتی ہے۔"
+      );
+
+      return;
+
+    }
+
+
+    const entry = {
+
+      id:
+        Date.now()
+        .toString(),
+
+      title:
+        title,
+
+      username:
+        username,
+
+      password:
+        password,
+
+      description:
+        description,
+
+      created:
+        new Date()
+          .toISOString()
+
+    };
+
+
+    shPasswordManager.entries.push(
+      entry
+    );
+
+
+    shPMSaveData();
+
+    shPMClearForm();
+
+    shPMRenderEntries();
+
+    shPMStartAutoLock();
+
+
+    alert(
+      "Password entry محفوظ ہوگئی۔"
+    );
+
+  }
+
+
+  /* =========================================
+     CLEAR FORM
+  ========================================= */
+
+  function shPMClearForm() {
+
+    const ids = [
+
+      "sh-pm-title",
+
+      "sh-pm-username",
+
+      "sh-pm-password",
+
+      "sh-pm-description"
+
+    ];
+
+
+    ids.forEach(
+      function(id) {
+
+        const element =
+          document.getElementById(id);
+
+        if (element) {
+          element.value = "";
+        }
+
+      }
+    );
+
+  }
+
+
+  /* =========================================
+     DELETE ENTRY
+  ========================================= */
+
+  function shPMDeleteEntry(id) {
+
+    if (
+      !shPasswordManager.unlocked
+    ) {
+
+      alert(
+        "Vault Locked ہے۔"
+      );
+
+      return;
+
+    }
+
+
+    const confirmed =
+      confirm(
+        "کیا آپ یہ password entry حذف کرنا چاہتے ہیں؟"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    shPasswordManager.entries =
+      shPasswordManager.entries.filter(
+        function(entry) {
+          return entry.id !== id;
+        }
+      );
+
+
+    shPMSaveData();
+
+    shPMRenderEntries();
+
+  }
+
+
+  /* =========================================
+     COPY TO CLIPBOARD
+  ========================================= */
+
+  async function shPMCopy(text) {
+
+    if (!text) {
+      return;
+    }
+
+
+    try {
+
+      await navigator.clipboard.writeText(
+        text
+      );
+
+      alert(
+        "Clipboard میں copy ہوگیا۔ اسے 30 seconds بعد clear کرنے کی کوشش کی جائے گی۔"
+      );
+
+
+      if (
+        shPasswordManager.clipboardTimer
+      ) {
+
+        clearTimeout(
+          shPasswordManager.clipboardTimer
+        );
+
+      }
+
+
+      shPasswordManager.clipboardTimer =
+        setTimeout(
+          async function() {
+
+            try {
+
+              await navigator.clipboard.writeText("");
+
+            } catch (error) {
+
+              /*
+                Some browsers do not allow
+                background clipboard changes.
+              */
+
+            }
+
+          },
+          30000
+        );
+
+
+    } catch (error) {
+
+      alert(
+        "Clipboard access اس browser میں دستیاب نہیں ہے۔"
+      );
+
+    }
+
+  }
+
+
+  /* =========================================
+     SEARCH ENTRIES
+  ========================================= */
+
+  function shPMSearch() {
+
+    const input =
+      document.getElementById(
+        "sh-pm-search"
+      );
+
+
+    if (!input) {
+      return;
+    }
+
+
+    const query =
+      input.value
+        .trim()
+        .toLowerCase();
+
+
+    const cards =
+      document.querySelectorAll(
+        ".sh-pm-entry"
+      );
+
+
+    cards.forEach(
+      function(card) {
+
+        const text =
+          card.textContent
+            .toLowerCase();
+
+
+        if (
+          !query ||
+          text.includes(query)
+        ) {
+
+          card.style.display =
+            "block";
+
+        } else {
+
+          card.style.display =
+            "none";
+
+        }
+
+      }
+    );
+
+  }
+
+
+  /* =========================================
+     RENDER ENTRIES
+  ========================================= */
+
+  function shPMRenderEntries() {
+
+    const container =
+      document.getElementById(
+        "sh-pm-entries"
+      );
+
+
+    if (!container) {
+      return;
+    }
+
+
+    container.innerHTML = "";
+
+
+    if (
+      shPasswordManager.entries.length === 0
+    ) {
+
+      container.innerHTML = `
+        <div class="sh-ai-answer">
+          ابھی کوئی Password محفوظ نہیں ہے۔
+        </div>
+      `;
+
+      return;
+
+    }
+
+
+    shPasswordManager.entries.forEach(
+      function(entry) {
+
+        const card =
+          document.createElement("div");
+
+
+        card.className =
+          "sh-pm-entry sh-panel";
+
+
+        card.innerHTML = `
+
+          <h3>
+            🔐 ${shPMEscape(entry.title)}
+          </h3>
+
+          <p>
+            ${shPMEscape(entry.description || "کوئی description نہیں")}
+          </p>
+
+          <div class="sh-pm-info">
+            <strong>Email / Username:</strong>
+            <span>${shPMEscape(entry.username || "—")}</span>
+          </div>
+
+          <div class="sh-pm-info">
+            <strong>Password:</strong>
+            <span>••••••••••</span>
+          </div>
+
+          <button
+            class="sh-service-btn"
+            type="button"
+            onclick="shPMCopyById('${entry.id}', 'username')"
+          >
+            📋 Copy Username
+          </button>
+
+          <button
+            class="sh-service-btn"
+            type="button"
+            onclick="shPMCopyById('${entry.id}', 'password')"
+          >
+            📋 Copy Password
+          </button>
+
+          <button
+            class="sh-service-btn"
+            type="button"
+            onclick="shPMDeleteEntry('${entry.id}')"
+          >
+            🗑️ Delete
+          </button>
+
+        `;
+
+
+        container.appendChild(card);
+
+      }
+    );
+
+  }
+
+
+  /* =========================================
+     COPY ENTRY FIELD
+  ========================================= */
+
+  function shPMCopyById(
+    id,
+    field
+  ) {
+
+    if (
+      !shPasswordManager.unlocked
+    ) {
+
+      alert(
+        "Vault Locked ہے۔"
+      );
+
+      return;
+
+    }
+
+
+    const entry =
+      shPasswordManager.entries.find(
+        function(item) {
+          return item.id === id;
+        }
+      );
+
+
+    if (!entry) {
+      return;
+    }
+
+
+    if (field === "username") {
+
+      shPMCopy(
+        entry.username
+      );
+
+      return;
+
+    }
+
+
+    if (field === "password") {
+
+      shPMCopy(
+        entry.password
+      );
+
+    }
+
+  }
+
+
+  /* =========================================
+     BASIC HTML ESCAPING
+  ========================================= */
+
+  function shPMEscape(value) {
+
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  }
+
+
+  /* =========================================
+     AUTO LOCK
+  ========================================= */
+
+  function shPMStartAutoLock() {
+
+    if (
+      shPasswordManager.autoLockTimer
+    ) {
+
+      clearTimeout(
+        shPasswordManager.autoLockTimer
+      );
+
+    }
+
+
+    shPasswordManager.autoLockTimer =
+      setTimeout(
+        function() {
+
+          shPMLock();
+
+          alert(
+            "Password Manager خودکار Lock ہوگیا۔"
+          );
+
+        },
+        shPasswordManager.autoLockMinutes *
+        60 *
+        1000
+      );
+
+  }
+
+
+  /* =========================================
+     CREATE PASSWORD MANAGER UI
+  ========================================= */
+
+  function shPMBuildInterface() {
+
+    const page =
+      document.getElementById(
+        "sh-password"
+      );
+
+
+    if (!page) {
+      return;
+    }
+
+
+    /*
+      Replace the temporary Part 1
+      Password Manager page with the
+      functional interface.
+    */
+
+    page.innerHTML = `
+
+      <button
+        class="sh-back"
+        onclick="shOpenPage('home')"
+      >
+        ← Home
+      </button>
+
+
+      <h2>🔐 Password Manager</h2>
+
+
+      <div class="sh-panel">
+
+        <h3 id="sh-pm-lock-status">
+          🔒 Vault Locked
+        </h3>
+
+        <p>
+          Passwords کو محفوظ رکھنے کے لیے
+          Vault Master Password استعمال کریں۔
+        </p>
+
+        <label>
+          Vault Master Password
+        </label>
+
+        <input
+          id="sh-pm-master-password"
+          class="sh-input"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Master Password"
+        >
+
+        <button
+          class="sh-primary-btn"
+          type="button"
+          onclick="shPMCreateMasterPassword()"
+        >
+          🔑 Create Master Password
+        </button>
+
+        <br><br>
+
+        <label>
+          Unlock Vault
+        </label>
+
+        <input
+          id="sh-pm-unlock-password"
+          class="sh-input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Vault Master Password"
+        >
+
+        <button
+          class="sh-primary-btn"
+          type="button"
+          onclick="shPMUnlock()"
+        >
+          🔓 Unlock Vault
+        </button>
+
+        <br>
+
+        <button
+          class="sh-service-btn"
+          type="button"
+          onclick="shPMLock()"
+        >
+          🔒 Lock Vault
+        </button>
+
+      </div>
+
+
+      <div
+        id="sh-pm-vault-content"
+        style="display:none;"
+      >
+
+        <div class="sh-panel">
+
+          <h3>Add Password</h3>
+
+          <label>
+            Name / Title
+          </label>
+
+          <input
+            id="sh-pm-title"
+            class="sh-input"
+            type="text"
+            placeholder="مثلاً Gmail"
+            autocomplete="off"
+          >
+
+
+          <label>
+            Email / Username
+          </label>
+
+          <input
+            id="sh-pm-username"
+            class="sh-input"
+            type="text"
+            placeholder="Email یا Username"
+            autocomplete="off"
+          >
+
+
+          <label>
+            Password
+          </label>
+
+          <input
+            id="sh-pm-password"
+            class="sh-input"
+            type="password"
+            placeholder="Password"
+            autocomplete="new-password"
+          >
+
+          <button
+            id="sh-pm-show"
+            class="sh-service-btn"
+            type="button"
+            onclick="shPMTogglePassword()"
+          >
+            👁️ Show Password
+          </button>
+
+
+          <label>
+            Description (100 characters maximum)
+          </label>
+
+          <textarea
+            id="sh-pm-description"
+            class="sh-input"
+            maxlength="100"
+            placeholder="ضروری معلومات، زیادہ سے زیادہ 100 characters"
+          ></textarea>
+
+
+          <button
+            class="sh-primary-btn"
+            type="button"
+            onclick="shPMAddEntry()"
+          >
+            ➕ Add Password
+          </button>
+
+        </div>
+
+
+        <div class="sh-panel">
+
+          <h3>Search Passwords</h3>
+
+          <input
+            id="sh-pm-search"
+            class="sh-input"
+            type="search"
+            placeholder="Title یا Username سے Search کریں..."
+            autocomplete="off"
+          >
+
+          <button
+            class="sh-service-btn"
+            type="button"
+            onclick="shPMSearch()"
+          >
+            🔎 Search
+          </button>
+
+        </div>
+
+
+        <div id="sh-pm-entries"></div>
+
+      </div>
+
+    `;
+
+
+    shPasswordManager.entries =
+      shPMGetStoredData();
+
+
+    shPMUpdateLockStatus();
+
+  }
+
+
+  /* =========================================
+     PASSWORD MANAGER STYLES
+  ========================================= */
+
+  function shPMAddStyles() {
+
+    if (
+      document.getElementById(
+        "sh-pm-styles"
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const style =
+      document.createElement("style");
+
+
+    style.id =
+      "sh-pm-styles";
+
+
+    style.textContent = `
+
+      .sh-pm-entry {
+        margin-bottom: 14px;
+      }
+
+      .sh-pm-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 7px 0;
+        font-size: 13px;
+      }
+
+      .sh-pm-info strong {
+        color: #4a5568;
+      }
+
+      body.sh-dark .sh-pm-info strong {
+        color: #c0cad8;
+      }
+
+    `;
+
+
+    document.head.appendChild(style);
+
+  }
+
+
+  /* =========================================
+     INITIALIZE PASSWORD MANAGER
+  ========================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+      shPMAddStyles();
+
+      shPMBuildInterface();
+
+    }
+  );
+
+</script>
