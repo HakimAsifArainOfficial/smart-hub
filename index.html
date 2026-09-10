@@ -4802,4 +4802,555 @@
 })();
 </script>
 
+<script>
+/* =========================================================
+   SMART HUB — PART 8
+   POLICY + COMPLAINT SYSTEM
+   ========================================================= */
 
+(function () {
+
+  const SH_COMPLAINT_EMAIL =
+    "justice.alliance.intl@proton.me";
+
+
+  function shPolicyCard(title, content) {
+    return `
+      <div class="sh-policy-card">
+        <h3>${title}</h3>
+        <div class="sh-policy-content">
+          ${content}
+        </div>
+      </div>
+    `;
+  }
+
+
+  function shBuildPolicyPage() {
+
+    const page = document.getElementById("sh-policy");
+
+    if (!page) return;
+
+    page.innerHTML = `
+
+      <div class="sh-panel">
+
+        <button class="sh-back-btn"
+                onclick="shOpenPage('sh-home')">
+          ← Back
+        </button>
+
+        <h2>📜 Policy</h2>
+
+        <p class="sh-note">
+          Smart Hub policies explain how the Web App,
+          its features, data, security, and AI Assistant
+          are intended to operate.
+        </p>
+
+
+        ${shPolicyCard(
+          "🔐 Privacy Policy",
+          `
+            <p>
+              Smart Hub is designed to minimize unnecessary
+              collection of personal information.
+            </p>
+
+            <p>
+              Information saved locally by Smart Hub remains
+              under the control of the browser/device unless
+              a feature specifically sends information to an
+              external service.
+            </p>
+
+            <p>
+              External websites and services opened through
+              Smart Hub have their own privacy policies.
+            </p>
+          `
+        )}
+
+
+        ${shPolicyCard(
+          "🛡️ Security Policy",
+          `
+            <p>
+              Smart Hub is designed with security and privacy
+              in mind, but no Web App can guarantee absolute
+              security.
+            </p>
+
+            <p>
+              Users should keep their device, browser,
+              operating system, and accounts protected.
+            </p>
+
+            <p>
+              External security scanners may provide useful
+              assessments, but their results are not an
+              absolute guarantee of safety.
+            </p>
+
+            <p>
+              Sensitive information should not be submitted
+              to third-party scanning services unless the user
+              understands the privacy implications.
+            </p>
+          `
+        )}
+
+
+        ${shPolicyCard(
+          "🤖 AI Assistant Policy",
+          `
+            <p>
+              The Smart Hub AI Assistant has a limited scope.
+            </p>
+
+            <ul>
+              <li>Connected Smart Hub Web App</li>
+              <li>User's YouTube Channel</li>
+              <li>User's Blog</li>
+              <li>User's Website linked in Smart Hub</li>
+              <li>Public information available from those connected sources</li>
+            </ul>
+
+            <p>
+              The AI Assistant must not access private,
+              password-protected, login-only, draft, or
+              confidential information.
+            </p>
+
+            <p>
+              The AI Assistant must not access the user's
+              phone, private contacts, private photos,
+              private files, unrelated applications, or
+              unrelated private accounts.
+            </p>
+
+            <p>
+              General information and answers are provided
+              through the AI Assistant within the permitted
+              scope of the Smart Hub system.
+            </p>
+
+            <p>
+              Complaints are separate from the AI Assistant.
+              The AI Assistant does not receive, investigate,
+              or decide complaints.
+            </p>
+          `
+        )}
+
+
+        ${shPolicyCard(
+          "💾 Data Policy",
+          `
+            <p>
+              Smart Hub may store certain preferences and
+              feature data locally in the browser when required
+              for functionality.
+            </p>
+
+            <p>
+              Users can use the available data-management
+              controls to clear supported local information.
+            </p>
+
+            <p>
+              Data sent to an external website, search engine,
+              scanner, or other third-party service is subject
+              to that service's own policies.
+            </p>
+
+            <p>
+              Smart Hub does not treat external third-party
+              services as part of its own private storage.
+            </p>
+          `
+        )}
+
+
+        ${shPolicyCard(
+          "⚖️ Terms of Use",
+          `
+            <p>
+              Smart Hub is provided as a Web App for utility,
+              information, security-checking, and connected
+              web-service purposes.
+            </p>
+
+            <p>
+              Users are responsible for how they use external
+              websites and services opened through Smart Hub.
+            </p>
+
+            <p>
+              Security-checking tools should be used responsibly
+              and only with information or websites the user is
+              authorized to check.
+            </p>
+
+            <p>
+              Smart Hub does not guarantee the accuracy,
+              availability, or security of external services.
+            </p>
+          `
+        )}
+
+
+        <div class="sh-policy-card">
+
+          <h3>📅 Policy Information</h3>
+
+          <p>
+            Smart Hub Policy Version: 1.0
+          </p>
+
+          <p>
+            These policies may be updated when Smart Hub
+            features or security requirements change.
+          </p>
+
+        </div>
+
+      </div>
+    `;
+  }
+
+
+  /* =========================================================
+     COMPLAINT SYSTEM
+     ========================================================= */
+
+  function shBuildComplaintPage() {
+
+    const page = document.getElementById("sh-complaint");
+
+    if (!page) return;
+
+    page.innerHTML = `
+
+      <div class="sh-panel">
+
+        <button class="sh-back-btn"
+                onclick="shOpenPage('sh-home')">
+          ← Back
+        </button>
+
+        <h2>📩 Complaint</h2>
+
+        <p class="sh-note">
+          Complaint is a separate direct channel.
+          The AI Assistant does not receive or decide complaints.
+        </p>
+
+
+        <div class="sh-complaint-card">
+
+          <h3>📨 Submit a Complaint</h3>
+
+          <p>
+            You can prepare your complaint below and send it
+            directly through your email application.
+          </p>
+
+          <label for="shComplaintSubject">
+            Subject
+          </label>
+
+          <input
+            id="shComplaintSubject"
+            type="text"
+            maxlength="150"
+            placeholder="Complaint subject"
+          >
+
+
+          <label for="shComplaintMessage">
+            Complaint
+          </label>
+
+          <textarea
+            id="shComplaintMessage"
+            maxlength="5000"
+            rows="9"
+            placeholder="Write your complaint here..."
+          ></textarea>
+
+
+          <button
+            class="sh-primary-btn"
+            onclick="shSendComplaint()">
+            📩 Send Complaint
+          </button>
+
+
+          <div class="sh-complaint-contact">
+
+            <strong>Direct Complaint Email</strong>
+
+            <p>
+              ${SH_COMPLAINT_EMAIL}
+            </p>
+
+            <button
+              onclick="shCopyComplaintEmail()">
+              Copy Email
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div class="sh-security-info">
+
+          <h3>ℹ️ Important</h3>
+
+          <p>
+            Do not include passwords, encryption keys,
+            recovery codes, or other highly sensitive
+            credentials in a complaint.
+          </p>
+
+          <p>
+            Smart Hub does not claim that sending an email
+            guarantees a response or a particular outcome.
+          </p>
+
+        </div>
+
+      </div>
+    `;
+  }
+
+
+  window.shSendComplaint = function () {
+
+    const subjectElement =
+      document.getElementById(
+        "shComplaintSubject"
+      );
+
+    const messageElement =
+      document.getElementById(
+        "shComplaintMessage"
+      );
+
+    if (!subjectElement || !messageElement) {
+      return;
+    }
+
+    const subject =
+      subjectElement.value.trim();
+
+    const message =
+      messageElement.value.trim();
+
+
+    if (!subject) {
+
+      alert(
+        "Please enter a complaint subject."
+      );
+
+      subjectElement.focus();
+
+      return;
+    }
+
+
+    if (!message) {
+
+      alert(
+        "Please write your complaint."
+      );
+
+      messageElement.focus();
+
+      return;
+    }
+
+
+    const mailto =
+      "mailto:" +
+      SH_COMPLAINT_EMAIL +
+      "?subject=" +
+      encodeURIComponent(subject) +
+      "&body=" +
+      encodeURIComponent(message);
+
+
+    window.location.href = mailto;
+  };
+
+
+  window.shCopyComplaintEmail = function () {
+
+    if (
+      navigator.clipboard &&
+      navigator.clipboard.writeText
+    ) {
+
+      navigator.clipboard.writeText(
+        SH_COMPLAINT_EMAIL
+      ).then(function () {
+
+        alert(
+          "Complaint email copied."
+        );
+
+      }).catch(function () {
+
+        alert(
+          SH_COMPLAINT_EMAIL
+        );
+
+      });
+
+      return;
+    }
+
+
+    alert(
+      SH_COMPLAINT_EMAIL
+    );
+  };
+
+
+  /* =========================================================
+     POLICY + COMPLAINT CSS
+     ========================================================= */
+
+  function shAddPolicyComplaintStyles() {
+
+    if (
+      document.getElementById(
+        "shPolicyComplaintStyles"
+      )
+    ) {
+      return;
+    }
+
+
+    const style =
+      document.createElement("style");
+
+    style.id =
+      "shPolicyComplaintStyles";
+
+
+    style.textContent = `
+
+      .sh-policy-card,
+      .sh-complaint-card {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid rgba(128,128,128,.25);
+        background: rgba(128,128,128,.06);
+      }
+
+
+      .sh-policy-card h3,
+      .sh-complaint-card h3 {
+        margin-top: 0;
+      }
+
+
+      .sh-policy-content {
+        line-height: 1.65;
+      }
+
+
+      .sh-policy-content p {
+        margin: 10px 0;
+      }
+
+
+      .sh-policy-content ul {
+        padding-left: 22px;
+        line-height: 1.7;
+      }
+
+
+      .sh-complaint-card label {
+        display: block;
+        margin-top: 14px;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+
+
+      .sh-complaint-card textarea {
+        width: 100%;
+        min-height: 180px;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+
+
+      .sh-complaint-contact {
+        margin-top: 20px;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(128,128,128,.08);
+      }
+
+
+      .sh-complaint-contact p {
+        word-break: break-word;
+      }
+
+
+      .sh-complaint-contact button {
+        padding: 9px 14px;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+
+
+      .sh-danger-btn {
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+
+
+      @media (max-width: 600px) {
+
+        .sh-policy-card,
+        .sh-complaint-card {
+          padding: 14px;
+        }
+
+      }
+
+    `;
+
+
+    document.head.appendChild(style);
+  }
+
+
+  /* =========================================================
+     INITIALIZATION
+     ========================================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+      shBuildPolicyPage();
+      shBuildComplaintPage();
+      shAddPolicyComplaintStyles();
+
+    }
+  );
+
+})();
+     </script>
