@@ -1142,3 +1142,723 @@
   }
 
 </style>
+<!-- ================================
+     SMART HUB — PART 3
+     JavaScript Core & Navigation
+================================= -->
+
+<script>
+
+  /* =================================
+     SMART HUB — BASIC NAVIGATION
+  ================================= */
+
+  function shOpenPage(pageName) {
+
+    const pages = document.querySelectorAll(".sh-page");
+
+    pages.forEach(function(page) {
+      page.classList.remove("sh-active");
+    });
+
+    const target = document.getElementById("sh-" + pageName);
+
+    if (target) {
+      target.classList.add("sh-active");
+    }
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  }
+
+
+  /* =================================
+     MENU
+  ================================= */
+
+  function shToggleMenu() {
+
+    const home = document.getElementById("sh-home");
+
+    if (home && home.classList.contains("sh-active")) {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
+    } else {
+      shOpenPage("home");
+    }
+  }
+
+
+  /* =================================
+     SEARCH ENGINES
+  ================================= */
+
+  const shSearchEngines = {
+
+    "DuckDuckGo":
+      "https://duckduckgo.com/?q=",
+
+    "Yandex":
+      "https://yandex.com/search/?text=",
+
+    "Microsoft Bing":
+      "https://www.bing.com/search?q=",
+
+    "Yahoo":
+      "https://search.yahoo.com/search?p=",
+
+    "Startpage":
+      "https://www.startpage.com/sp/search?query=",
+
+    "Ecosia":
+      "https://www.ecosia.org/search?q=",
+
+    "Mojeek":
+      "https://www.mojeek.com/search?q=",
+
+    "Swisscows":
+      "https://swisscows.com/en/web?query=",
+
+    "Gibiru":
+      "https://gibiru.com/results.html?q=",
+
+    "MetaGer":
+      "https://metager.org/meta/meta.ger3?eingabe=",
+
+    "SearXNG":
+      "https://searx.be/search?q=",
+
+    "Qwant":
+      "https://www.qwant.com/?q="
+  };
+
+
+  /* =================================
+     SEARCH FUNCTION
+  ================================= */
+
+  function shSearch() {
+
+    const input =
+      document.getElementById("sh-search-input");
+
+    const engine =
+      document.getElementById("sh-search-engine");
+
+    if (!input || !engine) {
+      return;
+    }
+
+    const query =
+      input.value.trim();
+
+    const selectedEngine =
+      engine.value;
+
+    if (!query) {
+
+      alert("براہِ کرم Search یا URL لکھیں۔");
+
+      input.focus();
+
+      return;
+    }
+
+
+    /* اگر URL لکھا گیا ہو */
+
+    let isUrl =
+      /^(https?:\/\/)/i.test(query) ||
+      /^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(query);
+
+
+    if (isUrl) {
+
+      let url = query;
+
+      if (!/^https?:\/\//i.test(url)) {
+        url = "https://" + url;
+      }
+
+      window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+      return;
+    }
+
+
+    /* Search Engine */
+
+    const baseUrl =
+      shSearchEngines[selectedEngine];
+
+    if (!baseUrl) {
+
+      alert("Search Engine دستیاب نہیں ہے۔");
+
+      return;
+    }
+
+    const searchUrl =
+      baseUrl +
+      encodeURIComponent(query);
+
+    window.open(
+      searchUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
+
+  /* =================================
+     ENTER KEY SEARCH
+  ================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+      const input =
+        document.getElementById("sh-search-input");
+
+      if (input) {
+
+        input.addEventListener(
+          "keydown",
+          function(event) {
+
+            if (event.key === "Enter") {
+              shSearch();
+            }
+
+          }
+        );
+
+      }
+
+    }
+  );
+
+
+  /* =================================
+     SERVICE DATA
+  ================================= */
+
+  const shServices = {
+
+    social: [
+
+      {
+        name: "Facebook",
+        url: "https://www.facebook.com/"
+      },
+
+      {
+        name: "Instagram",
+        url: "https://www.instagram.com/"
+      },
+
+      {
+        name: "X (Twitter)",
+        url: "https://x.com/"
+      },
+
+      {
+        name: "Reddit",
+        url: "https://www.reddit.com/"
+      },
+
+      {
+        name: "LinkedIn",
+        url: "https://www.linkedin.com/"
+      }
+
+    ],
+
+
+    video: [
+
+      {
+        name: "YouTube",
+        url: "https://www.youtube.com/"
+      },
+
+      {
+        name: "Dailymotion",
+        url: "https://www.dailymotion.com/"
+      },
+
+      {
+        name: "Netflix",
+        url: "https://www.netflix.com/"
+      },
+
+      {
+        name: "Tubidy",
+        url: "https://tubidy.com/"
+      }
+
+    ],
+
+
+    blog: [
+
+      {
+        name: "Blogger",
+        url: "https://www.blogger.com/"
+      },
+
+      {
+        name: "WordPress",
+        url: "https://wordpress.com/"
+      },
+
+      {
+        name: "Medium",
+        url: "https://medium.com/"
+      },
+
+      {
+        name: "Wix",
+        url: "https://www.wix.com/"
+      }
+
+    ],
+
+
+    discovery: [
+
+      {
+        name: "Pinterest",
+        url: "https://www.pinterest.com/"
+      },
+
+      {
+        name: "Quora",
+        url: "https://www.quora.com/"
+      }
+
+    ],
+
+
+    developer: [
+
+      {
+        name: "GitHub",
+        url: "https://github.com/"
+      }
+
+    ],
+
+
+    advertising: [
+
+      {
+        name: "AdSense",
+        url: "https://www.google.com/adsense/"
+      },
+
+      {
+        name: "Adsterra",
+        url: "https://adsterra.com/"
+      },
+
+      {
+        name: "Monetag",
+        url: "https://monetag.com/"
+      }
+
+    ],
+
+
+    email: [
+
+      {
+        name: "Gmail",
+        url: "https://mail.google.com/"
+      },
+
+      {
+        name: "Tuta Mail",
+        url: "https://mail.tuta.com/"
+      },
+
+      {
+        name: "Proton Mail",
+        url: "https://mail.proton.me/"
+      },
+
+      {
+        name: "Yahoo Mail",
+        url: "https://mail.yahoo.com/"
+      },
+
+      {
+        name: "Outlook / Microsoft",
+        url: "https://outlook.live.com/"
+      },
+
+      {
+        name: "iCloud Mail",
+        url: "https://www.icloud.com/mail/"
+      },
+
+      {
+        name: "AOL Mail",
+        url: "https://mail.aol.com/"
+      },
+
+      {
+        name: "GMX Mail",
+        url: "https://www.gmx.com/"
+      },
+
+      {
+        name: "Zoho Mail",
+        url: "https://www.zoho.com/mail/"
+      },
+
+      {
+        name: "Mail.com",
+        url: "https://www.mail.com/"
+      },
+
+      {
+        name: "Yandex Mail",
+        url: "https://mail.yandex.com/"
+      }
+
+    ]
+
+  };
+
+
+  /* =================================
+     SAFETY CHECK DATA
+  ================================= */
+
+  const shSafetyServices = [
+
+    {
+      name: "IP Address Check",
+      url: "https://whatismyipaddress.com/"
+    },
+
+    {
+      name: "VirusTotal URL Check",
+      url: "https://www.virustotal.com/gui/home/url"
+    },
+
+    {
+      name: "VirusTotal File Check",
+      url: "https://www.virustotal.com/gui/home/upload"
+    },
+
+    {
+      name: "URLVoid Check",
+      url: "https://www.urlvoid.com/"
+    },
+
+    {
+      name: "Sucuri SiteCheck",
+      url: "https://sitecheck.sucuri.net/"
+    },
+
+    {
+      name: "Yandex Safety Check",
+      url: "https://yandex.com/safety/"
+    }
+
+  ];
+
+
+  /* =================================
+     TLS CHECK DATA
+  ================================= */
+
+  const shTlsServices = [
+
+    {
+      name: "SSL Labs SSL Server Test",
+      url: "https://www.ssllabs.com/ssltest/"
+    },
+
+    {
+      name: "Hardenize",
+      url: "https://www.hardenize.com/"
+    },
+
+    {
+      name: "MDN HTTP Observatory",
+      url: "https://developer.mozilla.org/en-US/observatory"
+    }
+
+  ];
+
+
+  /* =================================
+     AI CONTENT CHECK DATA
+  ================================= */
+
+  const shAiImageServices = [
+
+    {
+      name: "Isgen",
+      url: "https://isgen.ai/"
+    },
+
+    {
+      name: "DeepAI",
+      url: "https://deepai.org/"
+    },
+
+    {
+      name: "WasItAI",
+      url: "https://wasitai.com/"
+    },
+
+    {
+      name: "ImageDetector",
+      url: "https://www.imagedetector.ai/"
+    }
+
+  ];
+
+
+  const shAiVideoServices = [
+
+    {
+      name: "HumanText",
+      url: "https://www.humantext.ai/"
+    },
+
+    {
+      name: "UncovAI",
+      url: "https://uncovai.com/"
+    }
+
+  ];
+
+
+  /* =================================
+     CREATE SERVICE BUTTON
+  ================================= */
+
+  function shCreateServiceButton(service) {
+
+    const button =
+      document.createElement("a");
+
+    button.className =
+      "sh-service-btn";
+
+    button.href =
+      service.url;
+
+    button.target =
+      "_blank";
+
+    button.rel =
+      "noopener noreferrer";
+
+    button.textContent =
+      service.name;
+
+    return button;
+  }
+
+
+  /* =================================
+     RENDER SERVICES
+  ================================= */
+
+  function shRenderServices() {
+
+    const groups = {
+
+      "sh-social-services":
+        shServices.social,
+
+      "sh-video-services":
+        shServices.video,
+
+      "sh-blog-services":
+        shServices.blog,
+
+      "sh-discovery-services":
+        shServices.discovery,
+
+      "sh-developer-services":
+        shServices.developer,
+
+      "sh-ad-services":
+        shServices.advertising,
+
+      "sh-email-services":
+        shServices.email,
+
+      "sh-safety-services":
+        shSafetyServices
+
+    };
+
+
+    Object.keys(groups).forEach(
+      function(containerId) {
+
+        const container =
+          document.getElementById(containerId);
+
+        if (!container) {
+          return;
+        }
+
+        container.innerHTML = "";
+
+        groups[containerId].forEach(
+          function(service) {
+
+            container.appendChild(
+              shCreateServiceButton(service)
+            );
+
+          }
+        );
+
+      }
+    );
+
+  }
+
+
+  /* =================================
+     RENDER AI CONTENT CHECK
+  ================================= */
+
+  function shRenderAiChecks() {
+
+    const panels =
+      document.querySelectorAll(
+        "#sh-safety .sh-panel"
+      );
+
+    if (panels.length < 2) {
+      return;
+    }
+
+
+    const aiPanel =
+      panels[1];
+
+    const buttons =
+      aiPanel.querySelectorAll(
+        ".sh-service-btn"
+      );
+
+    if (buttons.length >= 2) {
+
+      buttons[0].onclick =
+        function() {
+
+          window.open(
+            shAiImageServices[0].url,
+            "_blank",
+            "noopener,noreferrer"
+          );
+
+        };
+
+
+      buttons[1].onclick =
+        function() {
+
+          window.open(
+            shAiVideoServices[0].url,
+            "_blank",
+            "noopener,noreferrer"
+          );
+
+        };
+
+    }
+
+  }
+
+
+  /* =================================
+     RENDER TLS CHECK
+  ================================= */
+
+  function shRenderTlsChecks() {
+
+    const panels =
+      document.querySelectorAll(
+        "#sh-safety .sh-panel"
+      );
+
+    if (panels.length < 3) {
+      return;
+    }
+
+
+    const tlsPanel =
+      panels[2];
+
+    const buttons =
+      tlsPanel.querySelectorAll(
+        ".sh-service-btn"
+      );
+
+
+    buttons.forEach(
+      function(button, index) {
+
+        if (shTlsServices[index]) {
+
+          button.onclick =
+            function() {
+
+              window.open(
+                shTlsServices[index].url,
+                "_blank",
+                "noopener,noreferrer"
+              );
+
+            };
+
+        }
+
+      }
+    );
+
+  }
+
+
+  /* =================================
+     INITIALIZE SMART HUB
+  ================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+      shRenderServices();
+
+      shRenderAiChecks();
+
+      shRenderTlsChecks();
+
+      shOpenPage("home");
+
+    }
+  );
+
+</script>
