@@ -8905,3 +8905,205 @@
 
 })();
 </script>
+
+<!-- =========================================================
+     SMART HUB — PART 12
+     FINAL HTML CLOSING & SECURITY CLEANUP
+     ========================================================= -->
+
+<script>
+(function () {
+    "use strict";
+
+    /* =========================================================
+       1. PREVENT ACCIDENTAL FORM SUBMISSION
+       ========================================================= */
+
+    document.addEventListener("submit", function (event) {
+        event.preventDefault();
+    });
+
+
+    /* =========================================================
+       2. DISABLE JAVASCRIPT BOOKMARKLET-LIKE INPUT
+       ========================================================= */
+
+    document.addEventListener("click", function (event) {
+
+        const link = event.target.closest("a");
+
+        if (!link) return;
+
+        const href = link.getAttribute("href");
+
+        if (!href) return;
+
+        if (
+            href.trim()
+                .toLowerCase()
+                .startsWith("javascript:")
+        ) {
+            event.preventDefault();
+            console.warn(
+                "Smart Hub blocked a javascript: link."
+            );
+        }
+    }, true);
+
+
+    /* =========================================================
+       3. BLOCK EMPTY EXTERNAL LINKS
+       ========================================================= */
+
+    document.addEventListener("click", function (event) {
+
+        const link = event.target.closest("a");
+
+        if (!link) return;
+
+        const href = link.getAttribute("href");
+
+        if (
+            href === "#" ||
+            href === "" ||
+            href === null
+        ) {
+            return;
+        }
+    });
+
+
+    /* =========================================================
+       4. SECURE EXTERNAL LINK HANDLER
+       ========================================================= */
+
+    window.shOpenSafeExternal = function (url) {
+
+        if (!url || typeof url !== "string") {
+            return;
+        }
+
+        const cleanUrl = url.trim();
+
+        if (
+            !/^https:\/\//i.test(cleanUrl)
+        ) {
+            alert(
+                "صرف HTTPS websites کھولی جا سکتی ہیں۔"
+            );
+            return;
+        }
+
+        window.open(
+            cleanUrl,
+            "_blank",
+            "noopener,noreferrer"
+        );
+    };
+
+
+    /* =========================================================
+       5. REMOVE POSSIBLE MASTER PASSWORD FIELD VALUE
+       ========================================================= */
+
+    window.shClearSensitiveFields = function () {
+
+        const possibleNames = [
+            "masterPassword",
+            "master_password",
+            "vaultPassword",
+            "vault_password"
+        ];
+
+        possibleNames.forEach(function (name) {
+
+            const fields =
+                document.querySelectorAll(
+                    `[name="${name}"], #${name}`
+                );
+
+            fields.forEach(function (field) {
+                try {
+                    field.value = "";
+                } catch (error) {
+                    /* Ignore */
+                }
+            });
+        });
+    };
+
+
+    /* =========================================================
+       6. CLEAR SENSITIVE FIELDS WHEN PAGE IS HIDDEN
+       ========================================================= */
+
+    document.addEventListener(
+        "visibilitychange",
+        function () {
+
+            if (document.hidden) {
+
+                try {
+                    window.shClearSensitiveFields();
+                } catch (error) {
+                    console.warn(error);
+                }
+            }
+        }
+    );
+
+
+    /* =========================================================
+       7. SECURITY INFO PANEL
+       ========================================================= */
+
+    window.shShowSecurityInfo = function () {
+
+        alert(
+            "Smart Hub Security\n\n" +
+            "• Password Vault: AES-256-GCM\n" +
+            "• Key Derivation: Argon2id\n" +
+            "• Master Password: not stored as plaintext\n" +
+            "• Clipboard: temporary copy with auto-clear attempt\n" +
+            "• Phone-wide Firewall: not controlled by this Web App\n" +
+            "• Private phone files/contacts: not accessible\n" +
+            "• External websites: only opened through HTTPS links"
+        );
+    };
+
+
+    /* =========================================================
+       8. FINAL APP INFORMATION
+       ========================================================= */
+
+    window.smartHubAppInfo = {
+        name: "Smart Hub",
+        version: "1.0",
+        platform: "GitHub Pages Web App",
+        passwordVault: "AES-256-GCM",
+        keyDerivation: "Argon2id",
+        aiAccess:
+            "Connected Smart Hub sources only",
+        complaint:
+            "Direct complaint channel, separate from AI"
+    };
+
+
+    /* =========================================================
+       9. FINAL CONSOLE MESSAGE
+       ========================================================= */
+
+    console.log(
+        "Smart Hub Final Security Cleanup loaded."
+    );
+
+})();
+</script>
+
+<!-- =========================================================
+     SMART HUB — END OF APPLICATION
+     ========================================================= -->
+
+</div>
+</body>
+</html>
