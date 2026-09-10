@@ -1,4 +1,1132 @@
-<!-- ================================
+<script>
+/* =========================================================
+   SMART HUB — PART 10
+   SECURE PASSWORD VAULT
+   Argon2id + AES-256-GCM
+   ========================================================= */
+
+(function () {
+
+  const VAULT_KEY = "smartHubSecureVault";
+  const OLD_VAULT_KEY = "smartHubPasswordManager";
+
+  let shVaultUnlocked = false;
+  let shVaultKey = null;
+  let shVaultData = [];
+
+  /* ---------------------------------------------------------
+     LOAD ARGON2-BROWSER
+     --------------------------------------------------------- */
+
+  function shLoadArgon2() {
+
+    return new Promise(function (resolve, reject) {
+
+      if (window.argon2) {
+        resolve(window.argon2);
+        return;
+      }
+
+      const existing =
+        document.querySelector(
+          'script[data-sh-argon2="true"]'
+        );
+
+      if (existing) {
+
+        existing.addEventListener(
+          "load",
+          function () {
+            resolve(window.argon2);
+          }
+        );
+
+        existing.addEventListener(
+          "error",
+          reject
+        );
+
+        return;
+      }
+
+      const script =
+        document.createElement("script");
+
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js";
+
+      script.async = true;
+
+      script.dataset.shArgon2 = "true";
+
+      script.onload = function () {
+
+        if (window.argon2) {
+          resolve(window.argon2);
+        } else {
+          reject(
+            new Error("Argon2 could not be loaded.")
+          );
+        }
+
+      };
+
+      script.onerror = function () {
+
+        reject(
+          new Error("Argon2 library could not be loaded.")
+        );
+
+      };
+
+      document.head.appendChild(script);
+    });
+  }
+
+
+  /* ---------------------------------------------------------
+     RANDOM BYTES
+     --------------------------------------------------------- */
+
+  function shRandomBytes(length) {
+
+    return crypto.getRandomValues(
+      new Uint8Array(length)
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     BYTE / BASE64 HELPERS
+     --------------------------------------------------------- */
+
+  function shBytesToBase64(bytes) {
+
+    let binary = "";
+
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+
+    return btoa(binary);
+  }
+
+
+  function shBase64ToBytes(base64) {
+
+    const binary =
+      atob(base64);
+
+    const bytes =
+      new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] =
+        binary.charCodeAt(i);
+    }
+
+    return bytes;
+  }
+
+
+  function shStringToBytes(text) {
+
+    return new TextEncoder().encode(text);
+  }
+
+
+  function shBytesToString(bytes) {
+
+    return new TextDecoder().decode(bytes);
+  }
+
+
+  /* ---------------------------------------------------------
+     ARGON2ID
+     --------------------------------------------------------- */
+
+  async function shDeriveArgon2Key(
+    masterPassword,
+    salt
+  ) {
+
+    const argon2 =
+      await shLoadArgon2();
+
+    const result =
+      await argon2.hash({
+
+        pass: masterPassword,
+
+        salt: salt,
+
+        time: 2,
+
+        mem: 19456,
+
+        parallelism: 1,
+
+        hashLen: 32,
+
+        type: argon2.ArgonType.Argon2id
+
+      });
+
+    return result.hash;
+  }
+
+
+  /* ---------------------------------------------------------
+     AES-256-GCM KEY
+     --------------------------------------------------------- */
+
+  async function shImportAesKey(rawBytes) {
+
+    return crypto.subtle.importKey(
+      "raw",
+      rawBytes,
+      {
+        name: "AES-GCM"
+      },
+      false,
+      [
+        "encrypt",
+        "decrypt"
+      ]
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     AES-256-GCM ENCRYPT
+     --------------------------------------------------------- */
+
+  async function shEncryptVault(
+    data,
+    key
+  ) {
+
+    const iv =
+      shRandomBytes(12);
+
+    const plaintext =
+      shStringToBytes(
+        JSON.stringify(data)
+      );
+
+    const ciphertext =
+      await crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: iv,
+          tagLength: 128
+        },
+        key,
+        plaintext
+      );
+
+    return {
+
+      iv:
+        shBytesToBase64(iv),
+
+      ciphertext:
+        shBytesToBase64(
+          new Uint8Array(ciphertext)
+        )
+
+    };
+  }
+
+
+  /* ---------------------------------------------------------
+     AES-256-GCM DECRYPT
+     --------------------------------------------------------- */
+
+  async function shDecryptVault(
+    encrypted,
+    key
+  ) {
+
+    const iv =
+      shBase64ToBytes(
+        encrypted.iv
+      );
+
+    const ciphertext =
+      shBase64ToBytes(
+        encrypted.ciphertext
+      );
+
+    const plaintext =
+      await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: iv,
+          tagLength: 128
+        },
+        key,
+        ciphertext
+      );
+
+    return JSON.parse(
+      shBytesToString(
+        new Uint8Array(plaintext)
+      )
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     CREATE NEW VAULT
+     --------------------------------------------------------- */
+
+  async function shCreateVault(
+    masterPassword
+  ) {
+
+    if (!masterPassword) {
+      throw new Error(
+        "Master Password is required."
+      );
+    }
+
+    const salt =
+      shRandomBytes(16);
+
+    const rawKey =
+      await shDeriveArgon2Key(
+        masterPassword,
+        salt
+      );
+
+    const key =
+      await shImportAesKey(
+        rawKey
+      );
+
+    const data = [];
+
+    const encrypted =
+      await shEncryptVault(
+        data,
+        key
+      );
+
+    const vault = {
+
+      version: 1,
+
+      kdf: "Argon2id",
+
+      memory: 19456,
+
+      iterations: 2,
+
+      parallelism: 1,
+
+      encryption: "AES-256-GCM",
+
+      salt:
+        shBytesToBase64(salt),
+
+      iv:
+        encrypted.iv,
+
+      ciphertext:
+        encrypted.ciphertext
+    };
+
+    localStorage.setItem(
+      VAULT_KEY,
+      JSON.stringify(vault)
+    );
+
+    shVaultKey = key;
+
+    shVaultData = [];
+
+    shVaultUnlocked = true;
+  }
+
+
+  /* ---------------------------------------------------------
+     UNLOCK VAULT
+     --------------------------------------------------------- */
+
+  async function shUnlockVault(
+    masterPassword
+  ) {
+
+    const stored =
+      localStorage.getItem(
+        VAULT_KEY
+      );
+
+    if (!stored) {
+
+      await shCreateVault(
+        masterPassword
+      );
+
+      return true;
+    }
+
+    const vault =
+      JSON.parse(stored);
+
+    const salt =
+      shBase64ToBytes(
+        vault.salt
+      );
+
+    const rawKey =
+      await shDeriveArgon2Key(
+        masterPassword,
+        salt
+      );
+
+    const key =
+      await shImportAesKey(
+        rawKey
+      );
+
+    const decrypted =
+      await shDecryptVault(
+        {
+          iv: vault.iv,
+          ciphertext: vault.ciphertext
+        },
+        key
+      );
+
+    if (!Array.isArray(decrypted)) {
+
+      throw new Error(
+        "Invalid vault."
+      );
+    }
+
+    shVaultKey = key;
+
+    shVaultData = decrypted;
+
+    shVaultUnlocked = true;
+
+    return true;
+  }
+
+
+  /* ---------------------------------------------------------
+     SAVE VAULT
+     --------------------------------------------------------- */
+
+  async function shSaveVault() {
+
+    if (
+      !shVaultUnlocked ||
+      !shVaultKey
+    ) {
+      throw new Error(
+        "Vault is locked."
+      );
+    }
+
+    const oldVault =
+      JSON.parse(
+        localStorage.getItem(
+          VAULT_KEY
+        )
+      );
+
+    const encrypted =
+      await shEncryptVault(
+        shVaultData,
+        shVaultKey
+      );
+
+    const vault = {
+
+      version:
+        oldVault.version || 1,
+
+      kdf:
+        "Argon2id",
+
+      memory:
+        oldVault.memory || 19456,
+
+      iterations:
+        oldVault.iterations || 2,
+
+      parallelism:
+        oldVault.parallelism || 1,
+
+      encryption:
+        "AES-256-GCM",
+
+      salt:
+        oldVault.salt,
+
+      iv:
+        encrypted.iv,
+
+      ciphertext:
+        encrypted.ciphertext
+    };
+
+    localStorage.setItem(
+      VAULT_KEY,
+      JSON.stringify(vault)
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     LOCK
+     --------------------------------------------------------- */
+
+  window.shSecureVaultLock =
+    function () {
+
+      shVaultUnlocked = false;
+
+      shVaultKey = null;
+
+      shVaultData = [];
+
+      shRenderSecureVault();
+
+    };
+
+
+  /* ---------------------------------------------------------
+     SHOW / HIDE PASSWORD
+     --------------------------------------------------------- */
+
+  window.shSecureTogglePassword =
+    function (id) {
+
+      const input =
+        document.getElementById(id);
+
+      if (!input) return;
+
+      input.type =
+        input.type === "password"
+          ? "text"
+          : "password";
+    };
+
+
+  /* ---------------------------------------------------------
+     ADD ENTRY
+     --------------------------------------------------------- */
+
+  window.shSecureAddEntry =
+    async function () {
+
+      if (!shVaultUnlocked) {
+        alert("Unlock the vault first.");
+        return;
+      }
+
+      const title =
+        document.getElementById(
+          "shSecureTitle"
+        ).value.trim();
+
+      const username =
+        document.getElementById(
+          "shSecureUsername"
+        ).value.trim();
+
+      const password =
+        document.getElementById(
+          "shSecurePassword"
+        ).value;
+
+      const description =
+        document.getElementById(
+          "shSecureDescription"
+        ).value.trim();
+
+
+      if (!title) {
+
+        alert("Please enter Name / Title.");
+
+        return;
+      }
+
+
+      if (!password) {
+
+        alert("Please enter Password.");
+
+        return;
+      }
+
+
+      if (description.length > 100) {
+
+        alert(
+          "Description must be 100 characters or less."
+        );
+
+        return;
+      }
+
+
+      shVaultData.push({
+
+        id:
+          crypto.randomUUID
+            ? crypto.randomUUID()
+            : Date.now().toString(),
+
+        title:
+          title,
+
+        username:
+          username,
+
+        password:
+          password,
+
+        description:
+          description,
+
+        created:
+          new Date().toISOString()
+
+      });
+
+
+      await shSaveVault();
+
+      document.getElementById(
+        "shSecureTitle"
+      ).value = "";
+
+      document.getElementById(
+        "shSecureUsername"
+      ).value = "";
+
+      document.getElementById(
+        "shSecurePassword"
+      ).value = "";
+
+      document.getElementById(
+        "shSecureDescription"
+      ).value = "";
+
+      shRenderSecureVault();
+    };
+
+
+  /* ---------------------------------------------------------
+     DELETE ENTRY
+     --------------------------------------------------------- */
+
+  window.shSecureDeleteEntry =
+    async function (id) {
+
+      if (!shVaultUnlocked) return;
+
+      const ok =
+        confirm(
+          "Delete this password entry?"
+        );
+
+      if (!ok) return;
+
+      shVaultData =
+        shVaultData.filter(
+          function (item) {
+            return item.id !== id;
+          }
+        );
+
+      await shSaveVault();
+
+      shRenderSecureVault();
+    };
+
+
+  /* ---------------------------------------------------------
+     COPY TO CLIPBOARD
+     --------------------------------------------------------- */
+
+  window.shSecureCopy =
+    async function (
+      text,
+      message
+    ) {
+
+      try {
+
+        await navigator.clipboard.writeText(
+          text
+        );
+
+        alert(
+          message +
+          "\n\nClipboard will be cleared after 30 seconds."
+        );
+
+        setTimeout(
+          async function () {
+
+            try {
+
+              const current =
+                await navigator.clipboard.readText();
+
+              if (current === text) {
+
+                await navigator.clipboard.writeText("");
+
+              }
+
+            } catch (error) {
+
+              /*
+               Clipboard permissions may prevent
+               automatic clearing.
+              */
+
+            }
+
+          },
+          30000
+        );
+
+      } catch (error) {
+
+        alert(
+          "Clipboard access was not available."
+        );
+
+      }
+    };
+
+
+  /* ---------------------------------------------------------
+     SEARCH
+     --------------------------------------------------------- */
+
+  window.shSecureSearch =
+    function () {
+
+      shRenderSecureVault();
+
+    };
+
+
+  /* ---------------------------------------------------------
+     RENDER VAULT
+     --------------------------------------------------------- */
+
+  function shRenderSecureVault() {
+
+    const page =
+      document.getElementById(
+        "sh-password"
+      );
+
+    if (!page) return;
+
+
+    if (!shVaultUnlocked) {
+
+      page.innerHTML = `
+
+        <div class="sh-panel">
+
+          <button
+            class="sh-back-btn"
+            onclick="shOpenPage('sh-home')">
+            ← Back
+          </button>
+
+          <h2>🔐 Password Manager</h2>
+
+          <p class="sh-note">
+            Your vault is locked.
+          </p>
+
+          <div class="sh-vault-card">
+
+            <h3>🔒 Unlock / Create Vault</h3>
+
+            <label>
+              Master Password
+            </label>
+
+            <input
+              id="shVaultMasterPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Enter Master Password"
+            >
+
+            <button
+              class="sh-primary-btn"
+              onclick="shSecureUnlock()">
+              🔓 Unlock
+            </button>
+
+            <p class="sh-vault-warning">
+              If you forget the Master Password,
+              the encrypted vault cannot be recovered
+              by Smart Hub.
+            </p>
+
+          </div>
+
+        </div>
+      `;
+
+      return;
+    }
+
+
+    page.innerHTML = `
+
+      <div class="sh-panel">
+
+        <button
+          class="sh-back-btn"
+          onclick="shOpenPage('sh-home')">
+          ← Back
+        </button>
+
+        <h2>🔐 Secure Password Manager</h2>
+
+        <div class="sh-vault-status">
+          🔓 Vault Unlocked
+          <button
+            onclick="shSecureVaultLock()">
+            🔒 Lock
+          </button>
+        </div>
+
+
+        <div class="sh-vault-card">
+
+          <h3>➕ Add Password</h3>
+
+          <label>
+            Name / Title
+          </label>
+
+          <input
+            id="shSecureTitle"
+            type="text"
+            maxlength="150"
+            placeholder="Account name"
+          >
+
+
+          <label>
+            Email / Username
+          </label>
+
+          <input
+            id="shSecureUsername"
+            type="text"
+            maxlength="200"
+            placeholder="Email or username"
+          >
+
+
+          <label>
+            Password
+          </label>
+
+          <div class="sh-password-input-row">
+
+            <input
+              id="shSecurePassword"
+              type="password"
+              autocomplete="new-password"
+              maxlength="500"
+              placeholder="Password"
+            >
+
+            <button
+              onclick="shSecureTogglePassword('shSecurePassword')">
+              👁️
+            </button>
+
+          </div>
+
+
+          <label>
+            Description
+          </label>
+
+          <textarea
+            id="shSecureDescription"
+            maxlength="100"
+            rows="3"
+            placeholder="Maximum 100 characters"
+          ></textarea>
+
+
+          <button
+            class="sh-primary-btn"
+            onclick="shSecureAddEntry()">
+            ➕ Add Entry
+          </button>
+
+        </div>
+
+
+        <div class="sh-vault-card">
+
+          <h3>🔎 Search Vault</h3>
+
+          <input
+            id="shSecureSearchInput"
+            type="search"
+            placeholder="Search Name, Email or Description"
+            oninput="shSecureSearch()"
+          >
+
+        </div>
+
+
+        <div id="shSecureEntries">
+        </div>
+
+
+        <div class="sh-vault-security">
+
+          <strong>🔐 Encryption</strong>
+
+          <p>
+            Key derivation: Argon2id
+          </p>
+
+          <p>
+            Vault encryption: AES-256-GCM
+          </p>
+
+          <p>
+            Master Password is not stored as plaintext.
+          </p>
+
+        </div>
+
+      </div>
+    `;
+
+
+    const searchInput =
+      document.getElementById(
+        "shSecureSearchInput"
+      );
+
+    const search =
+      searchInput
+        ? searchInput.value
+            .trim()
+            .toLowerCase()
+        : "";
+
+
+    const container =
+      document.getElementById(
+        "shSecureEntries"
+      );
+
+
+    const filtered =
+      shVaultData.filter(
+        function (item) {
+
+          if (!search) {
+            return true;
+          }
+
+          return (
+
+            item.title
+              .toLowerCase()
+              .includes(search)
+
+            ||
+
+            item.username
+              .toLowerCase()
+              .includes(search)
+
+            ||
+
+            item.description
+              .toLowerCase()
+              .includes(search)
+
+          );
+
+        }
+      );
+
+
+    if (!filtered.length) {
+
+      container.innerHTML = `
+        <div class="sh-vault-card">
+          <p>No password entries found.</p>
+        </div>
+      `;
+
+      return;
+    }
+
+
+    filtered.forEach(
+      function (item) {
+
+        const safeId =
+          "shPwd_" +
+          String(item.id)
+            .replace(/[^a-zA-Z0-9_-]/g, "_");
+
+
+        const card =
+          document.createElement(
+            "div"
+          );
+
+        card.className =
+          "sh-password-entry";
+
+
+        card.innerHTML = `
+
+          <h3>
+            ${shEscapeSecure(item.title)}
+          </h3>
+
+          <p>
+            <strong>Email / Username:</strong>
+            ${shEscapeSecure(item.username || "—")}
+          </p>
+
+          <p>
+            <strong>Password:</strong>
+          </p>
+
+          <div class="sh-password-input-row">
+
+            <input
+              id="${safeId}"
+              type="password"
+              readonly
+              value="${shEscapeAttribute(item.password)}"
+            >
+
+            <button
+              onclick="shSecureTogglePassword('${safeId}')">
+              👁️
+            </button>
+
+          </div>
+
+          <p>
+            <strong>Description:</strong>
+            ${shEscapeSecure(item.description || "—")}
+          </p>
+
+          <div class="sh-vault-actions">
+
+            <button
+              onclick="shSecureCopy(
+                ${JSON.stringify(item.username || "")},
+                'Username copied.'
+              )">
+              📋 Copy Username
+            </button>
+
+            <button
+              onclick="shSecureCopy(
+                ${JSON.stringify(item.password)},
+                'Password copied.'
+              )">
+              📋 Copy Password
+            </button>
+
+            <button
+              class="sh-danger-btn"
+              onclick="shSecureDeleteEntry(
+                ${JSON.stringify(item.id)}
+              )">
+              🗑️ Delete
+            </button>
+
+          </div>
+
+        `;
+
+
+        container.appendChild(card);
+
+      }
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     UNLOCK BUTTON
+     --------------------------------------------------------- */
+
+  window.shSecureUnlock =
+    async function () {
+
+      const input =
+        document.getElementById(
+          "shVaultMasterPassword"
+        );
+
+      if (!input) return;
+
+      const password =
+        input.value;
+
+
+      if (!password) {
+
+        alert(
+          "Enter your Master Password."
+        );
+
+        return;
+      }
+
+
+      try {
+
+        await shUnlockVault(
+          password
+        );
+
+        input.value = "";
+
+        shRenderSecureVault();
+
+      } catch (error) {
+
+        shVaultUnlocked = false;
+
+        shVaultKey = null;
+
+        shVaultData = [];
+
+        alert(
+          "Unlock failed. The <!-- ================================
      SMART HUB — PART 1
      Basic HTML Structure
 ================================= -->
@@ -5888,6 +7016,1333 @@
 
       shBuildAiPage();
       shAddAiStyles();
+
+    }
+  );
+
+})();
+</script>
+
+<script>
+/* =========================================================
+   SMART HUB — PART 10
+   SECURE PASSWORD VAULT
+   Argon2id + AES-256-GCM
+   ========================================================= */
+
+(function () {
+
+  const VAULT_KEY = "smartHubSecureVault";
+  const OLD_VAULT_KEY = "smartHubPasswordManager";
+
+  let shVaultUnlocked = false;
+  let shVaultKey = null;
+  let shVaultData = [];
+
+  /* ---------------------------------------------------------
+     LOAD ARGON2-BROWSER
+     --------------------------------------------------------- */
+
+  function shLoadArgon2() {
+
+    return new Promise(function (resolve, reject) {
+
+      if (window.argon2) {
+        resolve(window.argon2);
+        return;
+      }
+
+      const existing =
+        document.querySelector(
+          'script[data-sh-argon2="true"]'
+        );
+
+      if (existing) {
+
+        existing.addEventListener(
+          "load",
+          function () {
+            resolve(window.argon2);
+          }
+        );
+
+        existing.addEventListener(
+          "error",
+          reject
+        );
+
+        return;
+      }
+
+      const script =
+        document.createElement("script");
+
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js";
+
+      script.async = true;
+
+      script.dataset.shArgon2 = "true";
+
+      script.onload = function () {
+
+        if (window.argon2) {
+          resolve(window.argon2);
+        } else {
+          reject(
+            new Error("Argon2 could not be loaded.")
+          );
+        }
+
+      };
+
+      script.onerror = function () {
+
+        reject(
+          new Error("Argon2 library could not be loaded.")
+        );
+
+      };
+
+      document.head.appendChild(script);
+    });
+  }
+
+
+  /* ---------------------------------------------------------
+     RANDOM BYTES
+     --------------------------------------------------------- */
+
+  function shRandomBytes(length) {
+
+    return crypto.getRandomValues(
+      new Uint8Array(length)
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     BYTE / BASE64 HELPERS
+     --------------------------------------------------------- */
+
+  function shBytesToBase64(bytes) {
+
+    let binary = "";
+
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+
+    return btoa(binary);
+  }
+
+
+  function shBase64ToBytes(base64) {
+
+    const binary =
+      atob(base64);
+
+    const bytes =
+      new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] =
+        binary.charCodeAt(i);
+    }
+
+    return bytes;
+  }
+
+
+  function shStringToBytes(text) {
+
+    return new TextEncoder().encode(text);
+  }
+
+
+  function shBytesToString(bytes) {
+
+    return new TextDecoder().decode(bytes);
+  }
+
+
+  /* ---------------------------------------------------------
+     ARGON2ID
+     --------------------------------------------------------- */
+
+  async function shDeriveArgon2Key(
+    masterPassword,
+    salt
+  ) {
+
+    const argon2 =
+      await shLoadArgon2();
+
+    const result =
+      await argon2.hash({
+
+        pass: masterPassword,
+
+        salt: salt,
+
+        time: 2,
+
+        mem: 19456,
+
+        parallelism: 1,
+
+        hashLen: 32,
+
+        type: argon2.ArgonType.Argon2id
+
+      });
+
+    return result.hash;
+  }
+
+
+  /* ---------------------------------------------------------
+     AES-256-GCM KEY
+     --------------------------------------------------------- */
+
+  async function shImportAesKey(rawBytes) {
+
+    return crypto.subtle.importKey(
+      "raw",
+      rawBytes,
+      {
+        name: "AES-GCM"
+      },
+      false,
+      [
+        "encrypt",
+        "decrypt"
+      ]
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     AES-256-GCM ENCRYPT
+     --------------------------------------------------------- */
+
+  async function shEncryptVault(
+    data,
+    key
+  ) {
+
+    const iv =
+      shRandomBytes(12);
+
+    const plaintext =
+      shStringToBytes(
+        JSON.stringify(data)
+      );
+
+    const ciphertext =
+      await crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: iv,
+          tagLength: 128
+        },
+        key,
+        plaintext
+      );
+
+    return {
+
+      iv:
+        shBytesToBase64(iv),
+
+      ciphertext:
+        shBytesToBase64(
+          new Uint8Array(ciphertext)
+        )
+
+    };
+  }
+
+
+  /* ---------------------------------------------------------
+     AES-256-GCM DECRYPT
+     --------------------------------------------------------- */
+
+  async function shDecryptVault(
+    encrypted,
+    key
+  ) {
+
+    const iv =
+      shBase64ToBytes(
+        encrypted.iv
+      );
+
+    const ciphertext =
+      shBase64ToBytes(
+        encrypted.ciphertext
+      );
+
+    const plaintext =
+      await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: iv,
+          tagLength: 128
+        },
+        key,
+        ciphertext
+      );
+
+    return JSON.parse(
+      shBytesToString(
+        new Uint8Array(plaintext)
+      )
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     CREATE NEW VAULT
+     --------------------------------------------------------- */
+
+  async function shCreateVault(
+    masterPassword
+  ) {
+
+    if (!masterPassword) {
+      throw new Error(
+        "Master Password is required."
+      );
+    }
+
+    const salt =
+      shRandomBytes(16);
+
+    const rawKey =
+      await shDeriveArgon2Key(
+        masterPassword,
+        salt
+      );
+
+    const key =
+      await shImportAesKey(
+        rawKey
+      );
+
+    const data = [];
+
+    const encrypted =
+      await shEncryptVault(
+        data,
+        key
+      );
+
+    const vault = {
+
+      version: 1,
+
+      kdf: "Argon2id",
+
+      memory: 19456,
+
+      iterations: 2,
+
+      parallelism: 1,
+
+      encryption: "AES-256-GCM",
+
+      salt:
+        shBytesToBase64(salt),
+
+      iv:
+        encrypted.iv,
+
+      ciphertext:
+        encrypted.ciphertext
+    };
+
+    localStorage.setItem(
+      VAULT_KEY,
+      JSON.stringify(vault)
+    );
+
+    shVaultKey = key;
+
+    shVaultData = [];
+
+    shVaultUnlocked = true;
+  }
+
+
+  /* ---------------------------------------------------------
+     UNLOCK VAULT
+     --------------------------------------------------------- */
+
+  async function shUnlockVault(
+    masterPassword
+  ) {
+
+    const stored =
+      localStorage.getItem(
+        VAULT_KEY
+      );
+
+    if (!stored) {
+
+      await shCreateVault(
+        masterPassword
+      );
+
+      return true;
+    }
+
+    const vault =
+      JSON.parse(stored);
+
+    const salt =
+      shBase64ToBytes(
+        vault.salt
+      );
+
+    const rawKey =
+      await shDeriveArgon2Key(
+        masterPassword,
+        salt
+      );
+
+    const key =
+      await shImportAesKey(
+        rawKey
+      );
+
+    const decrypted =
+      await shDecryptVault(
+        {
+          iv: vault.iv,
+          ciphertext: vault.ciphertext
+        },
+        key
+      );
+
+    if (!Array.isArray(decrypted)) {
+
+      throw new Error(
+        "Invalid vault."
+      );
+    }
+
+    shVaultKey = key;
+
+    shVaultData = decrypted;
+
+    shVaultUnlocked = true;
+
+    return true;
+  }
+
+
+  /* ---------------------------------------------------------
+     SAVE VAULT
+     --------------------------------------------------------- */
+
+  async function shSaveVault() {
+
+    if (
+      !shVaultUnlocked ||
+      !shVaultKey
+    ) {
+      throw new Error(
+        "Vault is locked."
+      );
+    }
+
+    const oldVault =
+      JSON.parse(
+        localStorage.getItem(
+          VAULT_KEY
+        )
+      );
+
+    const encrypted =
+      await shEncryptVault(
+        shVaultData,
+        shVaultKey
+      );
+
+    const vault = {
+
+      version:
+        oldVault.version || 1,
+
+      kdf:
+        "Argon2id",
+
+      memory:
+        oldVault.memory || 19456,
+
+      iterations:
+        oldVault.iterations || 2,
+
+      parallelism:
+        oldVault.parallelism || 1,
+
+      encryption:
+        "AES-256-GCM",
+
+      salt:
+        oldVault.salt,
+
+      iv:
+        encrypted.iv,
+
+      ciphertext:
+        encrypted.ciphertext
+    };
+
+    localStorage.setItem(
+      VAULT_KEY,
+      JSON.stringify(vault)
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     LOCK
+     --------------------------------------------------------- */
+
+  window.shSecureVaultLock =
+    function () {
+
+      shVaultUnlocked = false;
+
+      shVaultKey = null;
+
+      shVaultData = [];
+
+      shRenderSecureVault();
+
+    };
+
+
+  /* ---------------------------------------------------------
+     SHOW / HIDE PASSWORD
+     --------------------------------------------------------- */
+
+  window.shSecureTogglePassword =
+    function (id) {
+
+      const input =
+        document.getElementById(id);
+
+      if (!input) return;
+
+      input.type =
+        input.type === "password"
+          ? "text"
+          : "password";
+    };
+
+
+  /* ---------------------------------------------------------
+     ADD ENTRY
+     --------------------------------------------------------- */
+
+  window.shSecureAddEntry =
+    async function () {
+
+      if (!shVaultUnlocked) {
+        alert("Unlock the vault first.");
+        return;
+      }
+
+      const title =
+        document.getElementById(
+          "shSecureTitle"
+        ).value.trim();
+
+      const username =
+        document.getElementById(
+          "shSecureUsername"
+        ).value.trim();
+
+      const password =
+        document.getElementById(
+          "shSecurePassword"
+        ).value;
+
+      const description =
+        document.getElementById(
+          "shSecureDescription"
+        ).value.trim();
+
+
+      if (!title) {
+
+        alert("Please enter Name / Title.");
+
+        return;
+      }
+
+
+      if (!password) {
+
+        alert("Please enter Password.");
+
+        return;
+      }
+
+
+      if (description.length > 100) {
+
+        alert(
+          "Description must be 100 characters or less."
+        );
+
+        return;
+      }
+
+
+      shVaultData.push({
+
+        id:
+          crypto.randomUUID
+            ? crypto.randomUUID()
+            : Date.now().toString(),
+
+        title:
+          title,
+
+        username:
+          username,
+
+        password:
+          password,
+
+        description:
+          description,
+
+        created:
+          new Date().toISOString()
+
+      });
+
+
+      await shSaveVault();
+
+      document.getElementById(
+        "shSecureTitle"
+      ).value = "";
+
+      document.getElementById(
+        "shSecureUsername"
+      ).value = "";
+
+      document.getElementById(
+        "shSecurePassword"
+      ).value = "";
+
+      document.getElementById(
+        "shSecureDescription"
+      ).value = "";
+
+      shRenderSecureVault();
+    };
+
+
+  /* ---------------------------------------------------------
+     DELETE ENTRY
+     --------------------------------------------------------- */
+
+  window.shSecureDeleteEntry =
+    async function (id) {
+
+      if (!shVaultUnlocked) return;
+
+      const ok =
+        confirm(
+          "Delete this password entry?"
+        );
+
+      if (!ok) return;
+
+      shVaultData =
+        shVaultData.filter(
+          function (item) {
+            return item.id !== id;
+          }
+        );
+
+      await shSaveVault();
+
+      shRenderSecureVault();
+    };
+
+
+  /* ---------------------------------------------------------
+     COPY TO CLIPBOARD
+     --------------------------------------------------------- */
+
+  window.shSecureCopy =
+    async function (
+      text,
+      message
+    ) {
+
+      try {
+
+        await navigator.clipboard.writeText(
+          text
+        );
+
+        alert(
+          message +
+          "\n\nClipboard will be cleared after 30 seconds."
+        );
+
+        setTimeout(
+          async function () {
+
+            try {
+
+              const current =
+                await navigator.clipboard.readText();
+
+              if (current === text) {
+
+                await navigator.clipboard.writeText("");
+
+              }
+
+            } catch (error) {
+
+              /*
+               Clipboard permissions may prevent
+               automatic clearing.
+              */
+
+            }
+
+          },
+          30000
+        );
+
+      } catch (error) {
+
+        alert(
+          "Clipboard access was not available."
+        );
+
+      }
+    };
+
+
+  /* ---------------------------------------------------------
+     SEARCH
+     --------------------------------------------------------- */
+
+  window.shSecureSearch =
+    function () {
+
+      shRenderSecureVault();
+
+    };
+
+
+  /* ---------------------------------------------------------
+     RENDER VAULT
+     --------------------------------------------------------- */
+
+  function shRenderSecureVault() {
+
+    const page =
+      document.getElementById(
+        "sh-password"
+      );
+
+    if (!page) return;
+
+
+    if (!shVaultUnlocked) {
+
+      page.innerHTML = `
+
+        <div class="sh-panel">
+
+          <button
+            class="sh-back-btn"
+            onclick="shOpenPage('sh-home')">
+            ← Back
+          </button>
+
+          <h2>🔐 Password Manager</h2>
+
+          <p class="sh-note">
+            Your vault is locked.
+          </p>
+
+          <div class="sh-vault-card">
+
+            <h3>🔒 Unlock / Create Vault</h3>
+
+            <label>
+              Master Password
+            </label>
+
+            <input
+              id="shVaultMasterPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Enter Master Password"
+            >
+
+            <button
+              class="sh-primary-btn"
+              onclick="shSecureUnlock()">
+              🔓 Unlock
+            </button>
+
+            <p class="sh-vault-warning">
+              If you forget the Master Password,
+              the encrypted vault cannot be recovered
+              by Smart Hub.
+            </p>
+
+          </div>
+
+        </div>
+      `;
+
+      return;
+    }
+
+
+    page.innerHTML = `
+
+      <div class="sh-panel">
+
+        <button
+          class="sh-back-btn"
+          onclick="shOpenPage('sh-home')">
+          ← Back
+        </button>
+
+        <h2>🔐 Secure Password Manager</h2>
+
+        <div class="sh-vault-status">
+          🔓 Vault Unlocked
+          <button
+            onclick="shSecureVaultLock()">
+            🔒 Lock
+          </button>
+        </div>
+
+
+        <div class="sh-vault-card">
+
+          <h3>➕ Add Password</h3>
+
+          <label>
+            Name / Title
+          </label>
+
+          <input
+            id="shSecureTitle"
+            type="text"
+            maxlength="150"
+            placeholder="Account name"
+          >
+
+
+          <label>
+            Email / Username
+          </label>
+
+          <input
+            id="shSecureUsername"
+            type="text"
+            maxlength="200"
+            placeholder="Email or username"
+          >
+
+
+          <label>
+            Password
+          </label>
+
+          <div class="sh-password-input-row">
+
+            <input
+              id="shSecurePassword"
+              type="password"
+              autocomplete="new-password"
+              maxlength="500"
+              placeholder="Password"
+            >
+
+            <button
+              onclick="shSecureTogglePassword('shSecurePassword')">
+              👁️
+            </button>
+
+          </div>
+
+
+          <label>
+            Description
+          </label>
+
+          <textarea
+            id="shSecureDescription"
+            maxlength="100"
+            rows="3"
+            placeholder="Maximum 100 characters"
+          ></textarea>
+
+
+          <button
+            class="sh-primary-btn"
+            onclick="shSecureAddEntry()">
+            ➕ Add Entry
+          </button>
+
+        </div>
+
+
+        <div class="sh-vault-card">
+
+          <h3>🔎 Search Vault</h3>
+
+          <input
+            id="shSecureSearchInput"
+            type="search"
+            placeholder="Search Name, Email or Description"
+            oninput="shSecureSearch()"
+          >
+
+        </div>
+
+
+        <div id="shSecureEntries">
+        </div>
+
+
+        <div class="sh-vault-security">
+
+          <strong>🔐 Encryption</strong>
+
+          <p>
+            Key derivation: Argon2id
+          </p>
+
+          <p>
+            Vault encryption: AES-256-GCM
+          </p>
+
+          <p>
+            Master Password is not stored as plaintext.
+          </p>
+
+        </div>
+
+      </div>
+    `;
+
+
+    const searchInput =
+      document.getElementById(
+        "shSecureSearchInput"
+      );
+
+    const search =
+      searchInput
+        ? searchInput.value
+            .trim()
+            .toLowerCase()
+        : "";
+
+
+    const container =
+      document.getElementById(
+        "shSecureEntries"
+      );
+
+
+    const filtered =
+      shVaultData.filter(
+        function (item) {
+
+          if (!search) {
+            return true;
+          }
+
+          return (
+
+            item.title
+              .toLowerCase()
+              .includes(search)
+
+            ||
+
+            item.username
+              .toLowerCase()
+              .includes(search)
+
+            ||
+
+            item.description
+              .toLowerCase()
+              .includes(search)
+
+          );
+
+        }
+      );
+
+
+    if (!filtered.length) {
+
+      container.innerHTML = `
+        <div class="sh-vault-card">
+          <p>No password entries found.</p>
+        </div>
+      `;
+
+      return;
+    }
+
+
+    filtered.forEach(
+      function (item) {
+
+        const safeId =
+          "shPwd_" +
+          String(item.id)
+            .replace(/[^a-zA-Z0-9_-]/g, "_");
+
+
+        const card =
+          document.createElement(
+            "div"
+          );
+
+        card.className =
+          "sh-password-entry";
+
+
+        card.innerHTML = `
+
+          <h3>
+            ${shEscapeSecure(item.title)}
+          </h3>
+
+          <p>
+            <strong>Email / Username:</strong>
+            ${shEscapeSecure(item.username || "—")}
+          </p>
+
+          <p>
+            <strong>Password:</strong>
+          </p>
+
+          <div class="sh-password-input-row">
+
+            <input
+              id="${safeId}"
+              type="password"
+              readonly
+              value="${shEscapeAttribute(item.password)}"
+            >
+
+            <button
+              onclick="shSecureTogglePassword('${safeId}')">
+              👁️
+            </button>
+
+          </div>
+
+          <p>
+            <strong>Description:</strong>
+            ${shEscapeSecure(item.description || "—")}
+          </p>
+
+          <div class="sh-vault-actions">
+
+            <button
+              onclick="shSecureCopy(
+                ${JSON.stringify(item.username || "")},
+                'Username copied.'
+              )">
+              📋 Copy Username
+            </button>
+
+            <button
+              onclick="shSecureCopy(
+                ${JSON.stringify(item.password)},
+                'Password copied.'
+              )">
+              📋 Copy Password
+            </button>
+
+            <button
+              class="sh-danger-btn"
+              onclick="shSecureDeleteEntry(
+                ${JSON.stringify(item.id)}
+              )">
+              🗑️ Delete
+            </button>
+
+          </div>
+
+        `;
+
+
+        container.appendChild(card);
+
+      }
+    );
+  }
+
+
+  /* ---------------------------------------------------------
+     UNLOCK BUTTON
+     --------------------------------------------------------- */
+
+  window.shSecureUnlock =
+    async function () {
+
+      const input =
+        document.getElementById(
+          "shVaultMasterPassword"
+        );
+
+      if (!input) return;
+
+      const password =
+        input.value;
+
+
+      if (!password) {
+
+        alert(
+          "Enter your Master Password."
+        );
+
+        return;
+      }
+
+
+      try {
+
+        await shUnlockVault(
+          password
+        );
+
+        input.value = "";
+
+        shRenderSecureVault();
+
+      } catch (error) {
+
+        shVaultUnlocked = false;
+
+        shVaultKey = null;
+
+        shVaultData = [];
+
+        alert(
+          "Unlock failed. The Master Password may be incorrect, or the vault may be invalid."
+        );
+
+      }
+    };
+
+
+  /* ---------------------------------------------------------
+     SAFE HTML
+     --------------------------------------------------------- */
+
+  function shEscapeSecure(text) {
+
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+
+  function shEscapeAttribute(text) {
+
+    return shEscapeSecure(text)
+      .replace(/\n/g, " ")
+      .replace(/\r/g, " ");
+  }
+
+
+  /* ---------------------------------------------------------
+     CSS
+     --------------------------------------------------------- */
+
+  function shAddSecureVaultStyles() {
+
+    if (
+      document.getElementById(
+        "shSecureVaultStyles"
+      )
+    ) {
+      return;
+    }
+
+
+    const style =
+      document.createElement("style");
+
+    style.id =
+      "shSecureVaultStyles";
+
+
+    style.textContent = `
+
+      .sh-vault-card,
+      .sh-vault-security,
+      .sh-password-entry {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid rgba(128,128,128,.25);
+        background: rgba(128,128,128,.06);
+      }
+
+
+      .sh-vault-card h3,
+      .sh-password-entry h3 {
+        margin-top: 0;
+      }
+
+
+      .sh-vault-card label {
+        display: block;
+        margin-top: 13px;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+
+
+      .sh-vault-card input,
+      .sh-vault-card textarea {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+
+      .sh-vault-card textarea {
+        resize: vertical;
+      }
+
+
+      .sh-password-input-row {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+      }
+
+
+      .sh-password-input-row input {
+        flex: 1;
+      }
+
+
+      .sh-password-input-row button {
+        min-width: 48px;
+        border: 0;
+        border-radius: 9px;
+        cursor: pointer;
+      }
+
+
+      .sh-vault-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(0,150,80,.10);
+      }
+
+
+      .sh-vault-status button,
+      .sh-vault-actions button {
+        border: 0;
+        border-radius: 9px;
+        padding: 9px 12px;
+        cursor: pointer;
+      }
+
+
+      .sh-vault-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+
+      .sh-vault-warning {
+        margin-top: 14px;
+        padding: 12px;
+        border-radius: 10px;
+        background: rgba(255,170,0,.10);
+        line-height: 1.5;
+      }
+
+
+      .sh-vault-security {
+        line-height: 1.6;
+      }
+
+
+      .sh-vault-security p {
+        margin: 5px 0;
+      }
+
+
+      @media (max-width: 600px) {
+
+        .sh-password-input-row {
+          flex-direction: column;
+        }
+
+        .sh-vault-actions {
+          flex-direction: column;
+        }
+
+        .sh-vault-actions button {
+          width: 100%;
+        }
+
+      }
+
+    `;
+
+
+    document.head.appendChild(style);
+  }
+
+
+  /* ---------------------------------------------------------
+     INITIALIZATION
+     --------------------------------------------------------- */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+      shAddSecureVaultStyles();
+
+      shRenderSecureVault();
 
     }
   );
