@@ -1862,3 +1862,537 @@
   );
 
 </script>
+
+<!-- =========================================
+     SMART HUB — PART 4
+     Service & Web Enhancements
+========================================= -->
+
+<script>
+
+  /* =========================================
+     SAFE EXTERNAL LINK OPENER
+  ========================================= */
+
+  function shOpenExternal(url) {
+
+    if (!url) {
+      return;
+    }
+
+    window.open(
+      url,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
+
+  /* =========================================
+     CUSTOM SEARCH ENGINE
+  ========================================= */
+
+  function shAddCustomSearchEngine() {
+
+    const existing =
+      document.getElementById(
+        "sh-custom-search-box"
+      );
+
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+
+    const panel =
+      document.querySelector(
+        "#sh-browser .sh-panel:nth-of-type(2)"
+      );
+
+    if (!panel) {
+      return;
+    }
+
+
+    const box =
+      document.createElement("div");
+
+    box.id =
+      "sh-custom-search-box";
+
+    box.style.marginTop =
+      "14px";
+
+
+    box.innerHTML = `
+      <h3>Custom Search Engine</h3>
+
+      <p>
+        اپنی پسند کا Search Engine URL درج کریں۔
+      </p>
+
+      <input
+        id="sh-custom-name"
+        class="sh-input"
+        type="text"
+        placeholder="Search Engine Name"
+      >
+
+      <input
+        id="sh-custom-url"
+        class="sh-input"
+        type="url"
+        placeholder="مثلاً https://example.com/search?q="
+      >
+
+      <button
+        class="sh-primary-btn"
+        onclick="shSaveCustomSearchEngine()"
+      >
+        Save Custom Search Engine
+      </button>
+    `;
+
+    panel.appendChild(box);
+  }
+
+
+  function shSaveCustomSearchEngine() {
+
+    const name =
+      document
+        .getElementById(
+          "sh-custom-name"
+        )
+        .value
+        .trim();
+
+
+    const url =
+      document
+        .getElementById(
+          "sh-custom-url"
+        )
+        .value
+        .trim();
+
+
+    if (!name || !url) {
+
+      alert(
+        "Search Engine Name اور URL دونوں درج کریں۔"
+      );
+
+      return;
+    }
+
+
+    let finalUrl =
+      url;
+
+
+    if (!finalUrl.includes("?")) {
+
+      if (finalUrl.endsWith("/")) {
+        finalUrl += "search?q=";
+      } else {
+        finalUrl += "/search?q=";
+      }
+
+    }
+
+
+    localStorage.setItem(
+      "sh_custom_search_name",
+      name
+    );
+
+    localStorage.setItem(
+      "sh_custom_search_url",
+      finalUrl
+    );
+
+
+    alert(
+      "Custom Search Engine محفوظ ہوگیا۔"
+    );
+
+
+    shLoadCustomSearchEngine();
+  }
+
+
+  function shLoadCustomSearchEngine() {
+
+    const name =
+      localStorage.getItem(
+        "sh_custom_search_name"
+      );
+
+    const url =
+      localStorage.getItem(
+        "sh_custom_search_url"
+      );
+
+
+    if (!name || !url) {
+      return;
+    }
+
+
+    const select =
+      document.getElementById(
+        "sh-search-engine"
+      );
+
+
+    if (!select) {
+      return;
+    }
+
+
+    const old =
+      document.getElementById(
+        "sh-custom-engine-option"
+      );
+
+
+    if (old) {
+      old.remove();
+    }
+
+
+    const option =
+      document.createElement("option");
+
+    option.id =
+      "sh-custom-engine-option";
+
+    option.value =
+      "CUSTOM";
+
+    option.textContent =
+      name;
+
+
+    select.appendChild(option);
+
+
+    shSearchEngines.CUSTOM =
+      url;
+  }
+
+
+  /* =========================================
+     ADD CUSTOM SEARCH BUTTON
+     TO SEARCH ENGINE PANEL
+  ========================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+      const panels =
+        document.querySelectorAll(
+          "#sh-browser .sh-panel"
+        );
+
+
+      if (panels.length >= 2) {
+
+        const button =
+          document.createElement("button");
+
+        button.className =
+          "sh-service-btn";
+
+        button.type =
+          "button";
+
+        button.textContent =
+          "➕ Add Custom Search Engine";
+
+        button.onclick =
+          shAddCustomSearchEngine;
+
+        panels[1].appendChild(button);
+
+      }
+
+
+      shLoadCustomSearchEngine();
+
+    }
+  );
+
+
+  /* =========================================
+     MY WEB LINKS
+  ========================================= */
+
+  const shMyWeb = {
+
+    blog: {
+      name: "My Blog",
+      url:
+        "https://hakimasifarainofficial.blogspot.com/"
+    },
+
+    youtube: {
+      name: "My YouTube Channel",
+      url:
+        "https://www.youtube.com/@Asif_Arain171"
+    },
+
+    website: {
+      name: "My Website",
+      url: ""
+    }
+
+  };
+
+
+  /* =========================================
+     UPDATE MY WEBSITE LINK
+  ========================================= */
+
+  function shSetMyWebsite(url) {
+
+    if (!url) {
+      return;
+    }
+
+
+    shMyWeb.website.url =
+      url;
+
+
+    const websiteButton =
+      document.querySelector(
+        "#sh-web a[href='#']"
+      );
+
+
+    if (websiteButton) {
+
+      websiteButton.href =
+        url;
+
+    }
+
+
+    localStorage.setItem(
+      "sh_my_website",
+      url
+    );
+
+  }
+
+
+  function shLoadMyWebsite() {
+
+    const saved =
+      localStorage.getItem(
+        "sh_my_website"
+      );
+
+
+    if (saved) {
+
+      shSetMyWebsite(
+        saved
+      );
+
+    }
+
+  }
+
+
+  /* =========================================
+     WEB PAGE INFORMATION
+  ========================================= */
+
+  function shPrepareWebPage() {
+
+    const panel =
+      document.querySelector(
+        "#sh-web .sh-panel"
+      );
+
+
+    if (!panel) {
+      return;
+    }
+
+
+    const existing =
+      document.getElementById(
+        "sh-web-note"
+      );
+
+
+    if (existing) {
+      return;
+    }
+
+
+    const note =
+      document.createElement("div");
+
+
+    note.id =
+      "sh-web-note";
+
+
+    note.style.marginTop =
+      "15px";
+
+
+    note.innerHTML = `
+      <p>
+        یہاں آپ کے اپنے public Web sources کے
+        Links رکھے جائیں گے۔
+      </p>
+    `;
+
+
+    panel.appendChild(note);
+
+  }
+
+
+  /* =========================================
+     INITIALIZE WEB SECTION
+  ========================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+      shLoadMyWebsite();
+
+      shPrepareWebPage();
+
+    }
+  );
+
+
+  /* =========================================
+     SERVICE SEARCH
+  ========================================= */
+
+  function shFindService() {
+
+    const input =
+      document.getElementById(
+        "sh-service-search"
+      );
+
+
+    if (!input) {
+      return;
+    }
+
+
+    const value =
+      input.value
+        .trim()
+        .toLowerCase();
+
+
+    const buttons =
+      document.querySelectorAll(
+        "#sh-services .sh-service-btn"
+      );
+
+
+    buttons.forEach(
+      function(button) {
+
+        const text =
+          button.textContent
+            .toLowerCase();
+
+
+        if (
+          !value ||
+          text.includes(value)
+        ) {
+
+          button.style.display =
+            "block";
+
+        } else {
+
+          button.style.display =
+            "none";
+
+        }
+
+      }
+    );
+
+  }
+
+
+  /* =========================================
+     ADD SERVICE SEARCH BOX
+  ========================================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+      const page =
+        document.getElementById(
+          "sh-services"
+        );
+
+
+      if (!page) {
+        return;
+      }
+
+
+      const heading =
+        page.querySelector("h2");
+
+
+      if (!heading) {
+        return;
+      }
+
+
+      const input =
+        document.createElement("input");
+
+
+      input.id =
+        "sh-service-search";
+
+      input.className =
+        "sh-input";
+
+      input.type =
+        "search";
+
+      input.placeholder =
+        "Service Search کریں...";
+
+
+      input.addEventListener(
+        "input",
+        shFindService
+      );
+
+
+      heading.insertAdjacentElement(
+        "afterend",
+        input
+      );
+
+    }
+  );
+
+</script>
