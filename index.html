@@ -3545,3 +3545,938 @@
   );
 
 </script>
+
+<script>
+/* =========================================================
+   SMART HUB — PART 6
+   SETTINGS SYSTEM
+   ========================================================= */
+
+(function () {
+
+  const SH_SETTINGS_KEY = "smartHubSettings";
+
+  const defaultSettings = {
+    appearance: "system",
+    fontSize: "medium",
+    interfaceSize: "medium",
+
+    dataSaver: false,
+    reduceImages: false,
+    reduceVideos: false,
+    blockAutoplay: true,
+    reduceAutoRefresh: true,
+
+    batterySaver: false,
+    reduceAnimations: false,
+    reduceBackgroundActivity: false,
+
+    saveSearchHistory: true,
+    saveBrowsingData: true,
+    doNotTrack: true,
+    cookiePreference: "standard",
+
+    settingsLock: false,
+    autoLockMinutes: 15,
+
+    defaultSearchEngine: "DuckDuckGo",
+    searchTimeRange: "Any Time",
+    openResultsNewTab: true,
+
+    defaultBrowser: "Opera",
+    openLinksSelectedBrowser: false,
+
+    notifications: true,
+    securityAlerts: true,
+    featureNotifications: true,
+
+    language: "English",
+    version: "1.0"
+  };
+
+  let shSettings = Object.assign(
+    {},
+    defaultSettings,
+    JSON.parse(localStorage.getItem(SH_SETTINGS_KEY) || "{}")
+  );
+
+  function shSaveSettings() {
+    localStorage.setItem(
+      SH_SETTINGS_KEY,
+      JSON.stringify(shSettings)
+    );
+  }
+
+  function shGet(id) {
+    return document.getElementById(id);
+  }
+
+  function shSettingRow(title, description, control) {
+    return `
+      <div class="sh-setting-row">
+        <div class="sh-setting-info">
+          <strong>${title}</strong>
+          <small>${description}</small>
+        </div>
+        <div class="sh-setting-control">
+          ${control}
+        </div>
+      </div>
+    `;
+  }
+
+  function shToggle(id, checked) {
+    return `
+      <label class="sh-switch">
+        <input type="checkbox" id="${id}" ${checked ? "checked" : ""}>
+        <span class="sh-slider"></span>
+      </label>
+    `;
+  }
+
+  function shSelect(id, value, options) {
+    return `
+      <select id="${id}">
+        ${options.map(function (item) {
+          return `
+            <option value="${item.value}" ${item.value === value ? "selected" : ""}>
+              ${item.label}
+            </option>
+          `;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function shSettingsCard(title, content) {
+    return `
+      <div class="sh-settings-card">
+        <h3>${title}</h3>
+        ${content}
+      </div>
+    `;
+  }
+
+  function shBuildSettings() {
+
+    const page = shGet("sh-settings");
+
+    if (!page) return;
+
+    page.innerHTML = `
+      <div class="sh-panel">
+
+        <button class="sh-back-btn" onclick="shOpenPage('sh-home')">
+          ← Back
+        </button>
+
+        <h2>⚙️ Settings</h2>
+
+        <p class="sh-note">
+          Smart Hub settings control this Web App only.
+          They do not change Android system settings.
+        </p>
+
+        ${shSettingsCard("🎨 Appearance", `
+
+          ${shSettingRow(
+            "Appearance",
+            "Choose the interface appearance.",
+            shSelect("shAppearance", shSettings.appearance, [
+              {value:"system", label:"System Default"},
+              {value:"light", label:"Light"},
+              {value:"dark", label:"Dark"}
+            ])
+          )}
+
+          ${shSettingRow(
+            "Font Size",
+            "Change text size inside Smart Hub.",
+            shSelect("shFontSize", shSettings.fontSize, [
+              {value:"small", label:"Small"},
+              {value:"medium", label:"Medium"},
+              {value:"large", label:"Large"}
+            ])
+          )}
+
+          ${shSettingRow(
+            "Interface Size",
+            "Change the general interface size.",
+            shSelect("shInterfaceSize", shSettings.interfaceSize, [
+              {value:"small", label:"Small"},
+              {value:"medium", label:"Medium"},
+              {value:"large", label:"Large"}
+            ])
+          )}
+
+        `)}
+
+        ${shSettingsCard("📊 Data Saver", `
+
+          ${shSettingRow(
+            "Data Saver",
+            "Reduce Smart Hub's own data usage.",
+            shToggle("shDataSaver", shSettings.dataSaver)
+          )}
+
+          ${shSettingRow(
+            "Reduce Image Loading",
+            "Reduce unnecessary image loading.",
+            shToggle("shReduceImages", shSettings.reduceImages)
+          )}
+
+          ${shSettingRow(
+            "Reduce Video Loading",
+            "Reduce unnecessary video loading.",
+            shToggle("shReduceVideos", shSettings.reduceVideos)
+          )}
+
+          ${shSettingRow(
+            "Block Auto-Play",
+            "Prevent supported media from starting automatically.",
+            shToggle("shBlockAutoplay", shSettings.blockAutoplay)
+          )}
+
+          ${shSettingRow(
+            "Reduce Auto Refresh",
+            "Reduce automatic refreshing inside Smart Hub.",
+            shToggle("shReduceAutoRefresh", shSettings.reduceAutoRefresh)
+          )}
+
+        `)}
+
+        ${shSettingsCard("🔋 Battery Saver", `
+
+          ${shSettingRow(
+            "Battery Saver",
+            "Reduce Smart Hub activity to save battery.",
+            shToggle("shBatterySaver", shSettings.batterySaver)
+          )}
+
+          ${shSettingRow(
+            "Reduce Animations",
+            "Reduce interface animations.",
+            shToggle("shReduceAnimations", shSettings.reduceAnimations)
+          )}
+
+          ${shSettingRow(
+            "Reduce Auto Refresh",
+            "Reduce automatic activity.",
+            shToggle("shBatteryAutoRefresh", shSettings.reduceAutoRefresh)
+          )}
+
+          ${shSettingRow(
+            "Reduce Background Activity",
+            "Limit Smart Hub background activity where supported.",
+            shToggle("shReduceBackground", shSettings.reduceBackgroundActivity)
+          )}
+
+        `)}
+
+        ${shSettingsCard("🔐 Privacy", `
+
+          ${shSettingRow(
+            "Save Search History",
+            "Store searches locally on this device.",
+            shToggle("shSaveSearchHistory", shSettings.saveSearchHistory)
+          )}
+
+          <div class="sh-setting-action">
+            <button onclick="shClearSearchHistory()">Clear Search History</button>
+          </div>
+
+          ${shSettingRow(
+            "Save Browsing Data",
+            "Allow Smart Hub to remember local browsing-related data.",
+            shToggle("shSaveBrowsingData", shSettings.saveBrowsingData)
+          )}
+
+          <div class="sh-setting-action">
+            <button onclick="shClearBrowsingData()">Clear Browsing Data</button>
+          </div>
+
+          <div class="sh-setting-action">
+            <button onclick="shClearLocalData()">Clear Local Data</button>
+          </div>
+
+          ${shSettingRow(
+            "Do Not Track",
+            "Send the browser's Do Not Track preference where supported.",
+            shToggle("shDoNotTrack", shSettings.doNotTrack)
+          )}
+
+          ${shSettingRow(
+            "Cookie Preference",
+            "Choose Smart Hub's cookie preference.",
+            shSelect("shCookiePreference", shSettings.cookiePreference, [
+              {value:"standard", label:"Standard"},
+              {value:"restricted", label:"Restricted"}
+            ])
+          )}
+
+        `)}
+
+        ${shSettingsCard("🛡️ Security", `
+
+          ${shSettingRow(
+            "Settings Lock",
+            "Protect Smart Hub settings with a lock.",
+            shToggle("shSettingsLock", shSettings.settingsLock)
+          )}
+
+          ${shSettingRow(
+            "Auto-Lock",
+            "Automatically lock sensitive Smart Hub areas after inactivity.",
+            shSelect("shAutoLockMinutes", String(shSettings.autoLockMinutes), [
+              {value:"5", label:"5 Minutes"},
+              {value:"15", label:"15 Minutes"},
+              {value:"30", label:"30 Minutes"},
+              {value:"60", label:"1 Hour"}
+            ])
+          )}
+
+          <div class="sh-setting-action">
+            <button onclick="shClearSensitiveData()">
+              Clear Sensitive Local Data
+            </button>
+          </div>
+
+          <div class="sh-security-info">
+            <strong>Security Information</strong>
+            <p>
+              Smart Hub is a Web App. Browser and device security
+              controls may still apply independently.
+            </p>
+          </div>
+
+        `)}
+
+        ${shSettingsCard("🔎 Search Preferences", `
+
+          ${shSettingRow(
+            "Default Search Engine",
+            "Select the search engine used by default.",
+            shSelect("shDefaultSearchEngine", shSettings.defaultSearchEngine, [
+              {value:"DuckDuckGo", label:"DuckDuckGo"},
+              {value:"Yandex", label:"Yandex"},
+              {value:"Microsoft Bing", label:"Microsoft Bing"},
+              {value:"Yahoo", label:"Yahoo"},
+              {value:"Startpage", label:"Startpage"},
+              {value:"Ecosia", label:"Ecosia"},
+              {value:"Mojeek", label:"Mojeek"},
+              {value:"Swisscows", label:"Swisscows"},
+              {value:"Gibiru", label:"Gibiru"},
+              {value:"MetaGer", label:"MetaGer"},
+              {value:"SearXNG", label:"SearXNG"},
+              {value:"Qwant", label:"Qwant"}
+            ])
+          )}
+
+          ${shSettingRow(
+            "Search Time Range",
+            "Default time range for searches.",
+            shSelect("shSearchTimeRange", shSettings.searchTimeRange, [
+              {value:"1 hour", label:"1 Hour"},
+              {value:"24 hours", label:"24 Hours"},
+              {value:"7 days", label:"7 Days"},
+              {value:"1 month", label:"1 Month"},
+              {value:"1 year", label:"1 Year"},
+              {value:"Any Time", label:"Any Time"}
+            ])
+          )}
+
+          ${shSettingRow(
+            "Open Results in New Tab",
+            "Open search results in a new browser tab.",
+            shToggle("shOpenResultsNewTab", shSettings.openResultsNewTab)
+          )}
+
+        `)}
+
+        ${shSettingsCard("🌐 Browser Preferences", `
+
+          ${shSettingRow(
+            "Default Browser",
+            "Select the browser available in Smart Hub.",
+            shSelect("shDefaultBrowser", shSettings.defaultBrowser, [
+              {value:"Opera", label:"Opera"}
+            ])
+          )}
+
+          ${shSettingRow(
+            "Open Links in Selected Browser",
+            "Use the selected browser when supported.",
+            shToggle("shOpenSelectedBrowser", shSettings.openLinksSelectedBrowser)
+          )}
+
+          ${shSettingRow(
+            "Private / Incognito Preference",
+            "Private browsing is controlled by the selected browser.",
+            `<span class="sh-info-badge">Browser Controlled</span>`
+          )}
+
+        `)}
+
+        ${shSettingsCard("🔔 Notifications", `
+
+          ${shSettingRow(
+            "Notifications",
+            "Enable Smart Hub notifications where supported.",
+            shToggle("shNotifications", shSettings.notifications)
+          )}
+
+          ${shSettingRow(
+            "Security Alerts",
+            "Allow Smart Hub security-related alerts.",
+            shToggle("shSecurityAlerts", shSettings.securityAlerts)
+          )}
+
+          ${shSettingRow(
+            "Feature Notifications",
+            "Allow notifications about Smart Hub features.",
+            shToggle("shFeatureNotifications", shSettings.featureNotifications)
+          )}
+
+        `)}
+
+        ${shSettingsCard("💾 Data Management", `
+
+          <div class="sh-setting-action">
+            <button onclick="shExportMyLinks()">Export My Links</button>
+            <button onclick="shImportMyLinks()">Import My Links</button>
+          </div>
+
+          <div class="sh-setting-action">
+            <button onclick="shExportContacts()">Export Contacts</button>
+            <button onclick="shClearContacts()">Clear Contacts</button>
+          </div>
+
+          <div class="sh-setting-action">
+            <button class="sh-danger-btn" onclick="shClearAllSmartHubData()">
+              Clear All Smart Hub Data
+            </button>
+          </div>
+
+        `)}
+
+        ${shSettingsCard("ℹ️ General", `
+
+          ${shSettingRow(
+            "Language",
+            "Smart Hub interface language.",
+            shSelect("shLanguage", shSettings.language, [
+              {value:"English", label:"English"},
+              {value:"Urdu", label:"Urdu"}
+            ])
+          )}
+
+          <div class="sh-about-box">
+            <strong>Smart Hub</strong>
+            <p>Version ${shSettings.version}</p>
+            <p>Web App Privacy & Utility Hub</p>
+          </div>
+
+          <div class="sh-setting-action">
+            <button onclick="shResetSettings()">Reset Settings</button>
+          </div>
+
+        `)}
+
+        ${shSettingsCard("🔄 Reset Smart Hub", `
+
+          <p>
+            Resetting settings returns Smart Hub preferences
+            to their default values.
+          </p>
+
+          <button class="sh-danger-btn" onclick="shResetSmartHubSettings()">
+            Reset Smart Hub Settings
+          </button>
+
+        `)}
+
+      </div>
+    `;
+
+    shBindSettingsEvents();
+    shApplySettings();
+  }
+
+
+  function shBindSettingsEvents() {
+
+    const bindings = {
+
+      shAppearance: function (value) {
+        shSettings.appearance = value;
+      },
+
+      shFontSize: function (value) {
+        shSettings.fontSize = value;
+      },
+
+      shInterfaceSize: function (value) {
+        shSettings.interfaceSize = value;
+      },
+
+      shDataSaver: function (value) {
+        shSettings.dataSaver = value;
+
+        if (value) {
+          shSettings.reduceImages = true;
+          shSettings.reduceVideos = true;
+          shSettings.blockAutoplay = true;
+          shSettings.reduceAutoRefresh = true;
+        }
+      },
+
+      shReduceImages: function (value) {
+        shSettings.reduceImages = value;
+      },
+
+      shReduceVideos: function (value) {
+        shSettings.reduceVideos = value;
+      },
+
+      shBlockAutoplay: function (value) {
+        shSettings.blockAutoplay = value;
+      },
+
+      shReduceAutoRefresh: function (value) {
+        shSettings.reduceAutoRefresh = value;
+      },
+
+      shBatterySaver: function (value) {
+        shSettings.batterySaver = value;
+
+        if (value) {
+          shSettings.reduceAnimations = true;
+          shSettings.reduceAutoRefresh = true;
+          shSettings.reduceBackgroundActivity = true;
+        }
+      },
+
+      shReduceAnimations: function (value) {
+        shSettings.reduceAnimations = value;
+      },
+
+      shBatteryAutoRefresh: function (value) {
+        shSettings.reduceAutoRefresh = value;
+      },
+
+      shReduceBackground: function (value) {
+        shSettings.reduceBackgroundActivity = value;
+      },
+
+      shSaveSearchHistory: function (value) {
+        shSettings.saveSearchHistory = value;
+      },
+
+      shSaveBrowsingData: function (value) {
+        shSettings.saveBrowsingData = value;
+      },
+
+      shDoNotTrack: function (value) {
+        shSettings.doNotTrack = value;
+      },
+
+      shSettingsLock: function (value) {
+        shSettings.settingsLock = value;
+      },
+
+      shNotifications: function (value) {
+        shSettings.notifications = value;
+      },
+
+      shSecurityAlerts: function (value) {
+        shSettings.securityAlerts = value;
+      },
+
+      shFeatureNotifications: function (value) {
+        shSettings.featureNotifications = value;
+      },
+
+      shOpenResultsNewTab: function (value) {
+        shSettings.openResultsNewTab = value;
+      },
+
+      shOpenSelectedBrowser: function (value) {
+        shSettings.openLinksSelectedBrowser = value;
+      }
+    };
+
+    Object.keys(bindings).forEach(function (id) {
+
+      const element = shGet(id);
+
+      if (!element) return;
+
+      element.addEventListener("change", function () {
+
+        const value =
+          element.type === "checkbox"
+            ? element.checked
+            : element.value;
+
+        bindings[id](value);
+
+        shSaveSettings();
+        shApplySettings();
+      });
+    });
+
+
+    const selectBindings = {
+      shCookiePreference: "cookiePreference",
+      shDefaultSearchEngine: "defaultSearchEngine",
+      shSearchTimeRange: "searchTimeRange",
+      shDefaultBrowser: "defaultBrowser",
+      shLanguage: "language",
+      shAutoLockMinutes: "autoLockMinutes"
+    };
+
+    Object.keys(selectBindings).forEach(function (id) {
+
+      const element = shGet(id);
+
+      if (!element) return;
+
+      element.addEventListener("change", function () {
+
+        let value = element.value;
+
+        if (id === "shAutoLockMinutes") {
+          value = Number(value);
+        }
+
+        shSettings[selectBindings[id]] = value;
+
+        shSaveSettings();
+        shApplySettings();
+      });
+    });
+  }
+
+
+  function shApplySettings() {
+
+    const root = document.documentElement;
+
+    root.classList.remove(
+      "sh-theme-light",
+      "sh-theme-dark",
+      "sh-font-small",
+      "sh-font-large",
+      "sh-interface-small",
+      "sh-interface-large"
+    );
+
+    let appearance = shSettings.appearance;
+
+    if (appearance === "dark") {
+      root.classList.add("sh-theme-dark");
+    }
+
+    if (appearance === "light") {
+      root.classList.add("sh-theme-light");
+    }
+
+    if (shSettings.fontSize === "small") {
+      root.classList.add("sh-font-small");
+    }
+
+    if (shSettings.fontSize === "large") {
+      root.classList.add("sh-font-large");
+    }
+
+    if (shSettings.interfaceSize === "small") {
+      root.classList.add("sh-interface-small");
+    }
+
+    if (shSettings.interfaceSize === "large") {
+      root.classList.add("sh-interface-large");
+    }
+
+    if (shSettings.reduceAnimations || shSettings.batterySaver) {
+      root.style.setProperty(
+        "--sh-animation-speed",
+        "0s"
+      );
+    } else {
+      root.style.removeProperty(
+        "--sh-animation-speed"
+      );
+    }
+
+    shSaveSettings();
+  }
+
+
+  /* =========================
+     PRIVACY / DATA FUNCTIONS
+     ========================= */
+
+  window.shClearSearchHistory = function () {
+
+    const keys = [
+      "smartHubSearchHistory",
+      "shSearchHistory",
+      "searchHistory"
+    ];
+
+    keys.forEach(function (key) {
+      localStorage.removeItem(key);
+    });
+
+    alert("Search history cleared.");
+  };
+
+
+  window.shClearBrowsingData = function () {
+
+    const keys = [
+      "smartHubBrowsingData",
+      "shBrowsingData",
+      "smartHubBrowserData"
+    ];
+
+    keys.forEach(function (key) {
+      localStorage.removeItem(key);
+    });
+
+    alert("Browsing data cleared.");
+  };
+
+
+  window.shClearLocalData = function () {
+
+    const ok = confirm(
+      "Clear Smart Hub local data?"
+    );
+
+    if (!ok) return;
+
+    localStorage.removeItem("smartHubSearchHistory");
+    localStorage.removeItem("shSearchHistory");
+    localStorage.removeItem("smartHubBrowsingData");
+    localStorage.removeItem("shBrowsingData");
+
+    alert("Selected local data has been cleared.");
+  };
+
+
+  window.shClearSensitiveData = function () {
+
+    const ok = confirm(
+      "Clear sensitive local data?"
+    );
+
+    if (!ok) return;
+
+    localStorage.removeItem("smartHubTemporaryData");
+    localStorage.removeItem("smartHubSessionData");
+
+    alert("Sensitive temporary data cleared.");
+  };
+
+
+  /* =========================
+     RESET SETTINGS
+     ========================= */
+
+  window.shResetSettings = function () {
+
+    const ok = confirm(
+      "Reset all Smart Hub settings to default?"
+    );
+
+    if (!ok) return;
+
+    shSettings = Object.assign({}, defaultSettings);
+
+    shSaveSettings();
+
+    shBuildSettings();
+
+    alert("Settings have been reset.");
+  };
+
+
+  window.shResetSmartHubSettings = function () {
+
+    const ok = confirm(
+      "Reset Smart Hub settings?"
+    );
+
+    if (!ok) return;
+
+    shSettings = Object.assign({}, defaultSettings);
+
+    shSaveSettings();
+
+    shBuildSettings();
+
+    alert("Smart Hub settings reset successfully.");
+  };
+
+
+  /* =========================
+     DATA MANAGEMENT
+     ========================= */
+
+  window.shExportMyLinks = function () {
+
+    const data =
+      localStorage.getItem("smartHubMyWeb") ||
+      localStorage.getItem("smartHubLinks") ||
+      "[]";
+
+    shDownloadTextFile(
+      "smart-hub-my-links.json",
+      data
+    );
+  };
+
+
+  window.shImportMyLinks = function () {
+
+    const input = document.createElement("input");
+
+    input.type = "file";
+    input.accept = ".json,application/json";
+
+    input.onchange = function () {
+
+      const file = input.files[0];
+
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = function () {
+
+        try {
+
+          const data = JSON.parse(reader.result);
+
+          localStorage.setItem(
+            "smartHubMyWeb",
+            JSON.stringify(data)
+          );
+
+          alert("My Links imported successfully.");
+
+        } catch (error) {
+
+          alert("Invalid JSON file.");
+
+        }
+
+      };
+
+      reader.readAsText(file);
+    };
+
+    input.click();
+  };
+
+
+  window.shExportContacts = function () {
+
+    const data =
+      localStorage.getItem("smartHubContacts") ||
+      "[]";
+
+    shDownloadTextFile(
+      "smart-hub-contacts.json",
+      data
+    );
+  };
+
+
+  window.shClearContacts = function () {
+
+    const ok = confirm(
+      "Clear all saved Smart Hub contacts?"
+    );
+
+    if (!ok) return;
+
+    localStorage.removeItem(
+      "smartHubContacts"
+    );
+
+    alert("Contacts cleared.");
+  };
+
+
+  window.shClearAllSmartHubData = function () {
+
+    const ok = confirm(
+      "WARNING: This will clear Smart Hub local data and settings. Continue?"
+    );
+
+    if (!ok) return;
+
+    const second = confirm(
+      "Are you absolutely sure?"
+    );
+
+    if (!second) return;
+
+    localStorage.clear();
+
+    shSettings = Object.assign(
+      {},
+      defaultSettings
+    );
+
+    alert(
+      "All Smart Hub local data has been cleared. The page will reload."
+    );
+
+    location.reload();
+  };
+
+
+  function shDownloadTextFile(filename, text) {
+
+    const blob = new Blob(
+      [text],
+      {type:"application/json"}
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = filename;
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 1000);
+  }
+
+
+  /* =========================
+     INITIALIZATION
+     ========================= */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+      shBuildSettings();
+
+    }
+  );
+
+})();
+</script>
