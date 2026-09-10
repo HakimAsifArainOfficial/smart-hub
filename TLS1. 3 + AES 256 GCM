@@ -1,0 +1,204 @@
+/* =========================================================
+   SMART HUB — SECURE CONNECTION DATA LAYER
+   TLS 1.3 + AES-256-GCM
+   ========================================================= */
+
+(function () {
+    "use strict";
+
+    const SH_SECURE_API = "https://YOUR-SECURE-BACKEND.example/api";
+
+    /*
+     * TLS 1.3:
+     * Browser HTTPS connection کو خود negotiate کرتا ہے۔
+     * JavaScript TLS version کو manually set نہیں کرتی۔
+     *
+     * AES-256-GCM:
+     * Application-level sensitive data encryption.
+     */
+
+    function shRandomBytes(length) {
+        return crypto.getRandomValues(
+            new Uint8Array(length)
+        );
+    }
+
+    function shBase64Encode(bytes) {
+        let binary = "";
+
+        bytes.forEach(function (byte) {
+            binary += String.fromCharCode(byte);
+        });
+
+        return btoa(binary);
+    }
+
+    function shBase64Decode(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+
+        return bytes;
+    }
+
+    /*
+     * AES-256-GCM key import
+     */
+    async function shImportAES256Key(rawKey) {
+
+        if (!(rawKey instanceof Uint8Array)) {
+            throw new Error("Invalid AES key.");
+        }
+
+        if (rawKey.length !== 32) {
+            throw new Error(
+                "AES-256 requires a 32-byte key."
+            );
+        }
+
+        return crypto.subtle.importKey(
+            "raw",
+            rawKey,
+            {
+                name: "AES-GCM"
+            },
+            false,
+            [
+                "encrypt",
+                "decrypt"
+            ]
+        );
+    }
+
+
+    /*
+     * Encrypt application data
+     */
+    window.shEncryptConnectionData = async function (
+        data,
+        rawKey
+    ) {
+
+        const key =
+            await shImportAES256Key(rawKey);
+
+        const iv =
+            shRandomBytes(12);
+
+        const plaintext =
+            new TextEncoder().encode(
+                JSON.stringify(data)
+            );
+
+        const ciphertext =
+            await crypto.subtle.encrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv,
+                    tagLength: 128
+                },
+                key,
+                plaintext
+            );
+
+        return {
+            algorithm: "AES-256-GCM",
+            iv: shBase64Encode(iv),
+            ciphertext: shBase64Encode(
+                new Uint8Array(ciphertext)
+            )
+        };
+    };
+
+
+    /*
+     * Decrypt application data
+     */
+    window.shDecryptConnectionData = async function (
+        encryptedData,
+        rawKey
+    ) {
+
+        if (
+            !encryptedData ||
+            encryptedData.algorithm !== "AES-256-GCM"
+        ) {
+            throw new Error(
+                "Invalid encrypted data."
+            );
+        }
+
+        const key =
+            await shImportAES256Key(rawKey);
+
+        const iv =
+            shBase64Decode(
+                encryptedData.iv
+            );
+
+        const ciphertext =
+            shBase64Decode(
+                encryptedData.ciphertext
+            );
+
+        const plaintext =
+            await crypto.subtle.decrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv,
+                    tagLength: 128
+                },
+                key,
+                ciphertext
+            );
+
+        return JSON.parse(
+            new TextDecoder().decode(plaintext)
+        );
+    };
+
+
+    /*
+     * HTTPS request.
+     *
+     * The browser negotiates TLS automatically.
+     * The backend must support TLS 1.3.
+     */
+    window.shSecureFetch = async function (
+        endpoint,
+        options
+    ) {
+
+        const url =
+            SH_SECURE_API +
+            endpoint;
+
+        if (!url.startsWith("https://")) {
+            throw new Error(
+                "Secure connection requires HTTPS."
+            );
+        }
+
+        return fetch(
+            url,
+            {
+                ...options,
+                credentials: "include",
+                headers: {
+                    ...(options && options.headers),
+                    "Content-Type":
+                        "application/json"
+                }
+            }
+        );
+    };
+
+
+    console.log(
+        "Smart Hub secure connection layer loaded."
+    );
+
+})();
