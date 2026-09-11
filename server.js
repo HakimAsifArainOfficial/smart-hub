@@ -2724,3 +2724,899 @@ console.log(
 console.log(
     "AES-256-GCM + SHA-384 + RSA-3072 cryptographic layer ready."
 );
+
+/*
+========================================================
+SMART HUB — ORACLE OCI BACKEND
+PART 5 — SECURE ENCRYPTED DATA STORAGE
+========================================================
+
+Purpose:
+- Store Smart Hub App Data encrypted at rest.
+- AES-256-GCM encrypts the actual stored data.
+- SHA-384 verifies integrity.
+- RSA-3072 protects the AES encryption key.
+- RSA-PSS + SHA-384 verifies the cryptographic envelope.
+- One Oracle OCI Backend Server only.
+
+Protected data categories include:
+- Settings
+- Search History
+- Saved Links
+- App Cookie Data
+- Earnings Data
+- User Profile Data
+- Application Preferences
+- Other Smart Hub server-side App Data
+
+IMPORTANT:
+- Plaintext App Data is never intentionally written
+  to the storage file.
+- Encryption keys are not hard-coded.
+- RSA keys come from secure server configuration.
+- This storage layer is the foundation for later
+  database/storage upgrades.
+========================================================
+*/
+
+
+const fs = require("fs");
+const path = require("path");
+
+
+/* -----------------------------------------------------
+   PART 5.1 — SECURE STORAGE CONFIGURATION
+----------------------------------------------------- */
+
+const SH_STORAGE_CONFIG = Object.freeze({
+
+    directory:
+        process.env.SH_STORAGE_DIR ||
+        path.join(
+            __dirname,
+            "smart-hub-secure-storage"
+        ),
+
+    file:
+        process.env.SH_STORAGE_FILE ||
+        "encrypted-data.json",
+
+    maxRecordSize:
+        5 * 1024 * 1024,
+
+    storageVersion:
+        1
+});
+
+
+/* -----------------------------------------------------
+   PART 5.2 — STORAGE DIRECTORY
+----------------------------------------------------- */
+
+function shEnsureStorageDirectory() {
+
+    if (
+        !fs.existsSync(
+            SH_STORAGE_CONFIG.directory
+        )
+    ) {
+
+        fs.mkdirSync(
+            SH_STORAGE_CONFIG.directory,
+            {
+                recursive: true,
+                mode: 0o700
+            }
+        );
+    }
+}
+
+
+/* -----------------------------------------------------
+   PART 5.3 — STORAGE FILE PATH
+----------------------------------------------------- */
+
+function shGetStorageFilePath() {
+
+    shEnsureStorageDirectory();
+
+    return path.join(
+        SH_STORAGE_CONFIG.directory,
+        SH_STORAGE_CONFIG.file
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 5.4 — EMPTY STORAGE STRUCTURE
+----------------------------------------------------- */
+
+function shCreateEmptyStorage() {
+
+    return {
+
+        version:
+            SH_STORAGE_CONFIG.storageVersion,
+
+        server:
+            "Oracle Cloud Infrastructure",
+
+        backendServerCount:
+            1,
+
+        encryption:
+            "AES-256-GCM",
+
+        integrity:
+            "SHA-384",
+
+        keyProtection:
+            "RSA-3072",
+
+        records:
+            {}
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 5.5 — READ ENCRYPTED STORAGE
+----------------------------------------------------- */
+
+function shReadStorageFile() {
+
+    const filePath =
+        shGetStorageFilePath();
+
+    if (
+        !fs.existsSync(filePath)
+    ) {
+
+        return shCreateEmptyStorage();
+    }
+
+    const raw =
+        fs.readFileSync(
+            filePath,
+            "utf8"
+        );
+
+    if (!raw) {
+
+        return shCreateEmptyStorage();
+    }
+
+    let storage;
+
+    try {
+
+        storage =
+            JSON.parse(raw);
+
+    } catch {
+
+        throw new Error(
+            "Secure storage file is invalid"
+        );
+    }
+
+    if (
+        !storage ||
+        typeof storage !== "object" ||
+        typeof storage.records !== "object"
+    ) {
+
+        throw new Error(
+            "Secure storage structure is invalid"
+        );
+    }
+
+    return storage;
+}
+
+
+/* -----------------------------------------------------
+   PART 5.6 — ATOMIC STORAGE WRITE
+-----------------------------------------------------
+
+Data is written to a temporary file first.
+
+After successful writing, the temporary file is
+renamed to the real storage file.
+
+This reduces the risk of leaving a partially written
+storage file after an unexpected interruption.
+----------------------------------------------------- */
+
+function shWriteStorageFile(storage) {
+
+    shEnsureStorageDirectory();
+
+    const filePath =
+        shGetStorageFilePath();
+
+    const temporaryPath =
+        `${filePath}.tmp`;
+
+    const serialized =
+        JSON.stringify(
+            storage
+        );
+
+    fs.writeFileSync(
+        temporaryPath,
+        serialized,
+        {
+            encoding: "utf8",
+            mode: 0o600
+        }
+    );
+
+    fs.renameSync(
+        temporaryPath,
+        filePath
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 5.7 — DATA CATEGORY VALIDATION
+----------------------------------------------------- */
+
+const SH_ALLOWED_DATA_CATEGORIES =
+    Object.freeze(
+        new Set([
+            "settings",
+            "search_history",
+            "saved_links",
+            "app_cookies",
+            "earnings",
+            "user_profile",
+            "app_preferences",
+            "general"
+        ])
+    );
+
+
+function shValidateDataCategory(
+    category
+) {
+
+    if (
+        typeof category !== "string"
+    ) {
+
+        throw new Error(
+            "Data category is required"
+        );
+    }
+
+    if (
+        !SH_ALLOWED_DATA_CATEGORIES.has(
+            category
+        )
+    ) {
+
+        throw new Error(
+            "Unsupported Smart Hub data category"
+        );
+    }
+
+    return category;
+}
+
+
+/* -----------------------------------------------------
+   PART 5.8 — RECORD ID GENERATION
+----------------------------------------------------- */
+
+function shCreateStorageRecordId() {
+
+    return crypto.randomUUID();
+}
+
+
+/* -----------------------------------------------------
+   PART 5.9 — SERVER-SIDE DATA ENCRYPTION
+----------------------------------------------------- */
+
+function shEncryptStoredData(
+    data
+) {
+
+    const plaintext =
+        JSON.stringify(data);
+
+    const plaintextBytes =
+        Buffer.byteLength(
+            plaintext,
+            "utf8"
+        );
+
+    if (
+        plaintextBytes >
+        SH_STORAGE_CONFIG.maxRecordSize
+    ) {
+
+        throw new Error(
+            "Stored data exceeds maximum record size"
+        );
+    }
+
+    const aesKey =
+        shGenerateAES256Key();
+
+    const encrypted =
+        shAES256GCMEncrypt(
+            plaintext,
+            aesKey
+        );
+
+    const encryptedAESKey =
+        shRSA3072EncryptKey(
+            aesKey
+        );
+
+    const signedPayload =
+        JSON.stringify({
+
+            version:
+                encrypted.version,
+
+            algorithm:
+                encrypted.algorithm,
+
+            integrityAlgorithm:
+                encrypted.integrityAlgorithm,
+
+            iv:
+                encrypted.iv,
+
+            authTag:
+                encrypted.authTag,
+
+            ciphertext:
+                encrypted.ciphertext,
+
+            integrity:
+                encrypted.integrity,
+
+            encryptedKey:
+                encryptedAESKey
+        });
+
+    const signature =
+        shRSA3072Sign(
+            signedPayload
+        );
+
+    return {
+
+        version:
+            SH_STORAGE_CONFIG.storageVersion,
+
+        encryption:
+            encrypted.algorithm,
+
+        integrity:
+            encrypted.integrityAlgorithm,
+
+        iv:
+            encrypted.iv,
+
+        authTag:
+            encrypted.authTag,
+
+        ciphertext:
+            encrypted.ciphertext,
+
+        integrityHash:
+            encrypted.integrity,
+
+        encryptedKey:
+            encryptedAESKey,
+
+        signature:
+            signature
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 5.10 — SERVER-SIDE DATA DECRYPTION
+----------------------------------------------------- */
+
+function shDecryptStoredData(
+    encryptedRecord
+) {
+
+    if (
+        !encryptedRecord ||
+        typeof encryptedRecord !== "object"
+    ) {
+
+        throw new Error(
+            "Invalid encrypted storage record"
+        );
+    }
+
+    const signedPayload =
+        JSON.stringify({
+
+            version:
+                encryptedRecord.version,
+
+            algorithm:
+                encryptedRecord.encryption,
+
+            integrityAlgorithm:
+                encryptedRecord.integrity,
+
+            iv:
+                encryptedRecord.iv,
+
+            authTag:
+                encryptedRecord.authTag,
+
+            ciphertext:
+                encryptedRecord.ciphertext,
+
+            integrity:
+                encryptedRecord.integrityHash,
+
+            encryptedKey:
+                encryptedRecord.encryptedKey
+        });
+
+    const validSignature =
+        shRSA3072Verify(
+            signedPayload,
+            encryptedRecord.signature
+        );
+
+    if (!validSignature) {
+
+        throw new Error(
+            "Storage RSA-3072 signature verification failed"
+        );
+    }
+
+    const aesKey =
+        shRSA3072DecryptKey(
+            encryptedRecord.encryptedKey
+        );
+
+    const plaintext =
+        shAES256GCMDecrypt(
+
+            {
+                version:
+                    encryptedRecord.version,
+
+                algorithm:
+                    encryptedRecord.encryption,
+
+                integrityAlgorithm:
+                    encryptedRecord.integrity,
+
+                iv:
+                    encryptedRecord.iv,
+
+                authTag:
+                    encryptedRecord.authTag,
+
+                ciphertext:
+                    encryptedRecord.ciphertext,
+
+                integrity:
+                    encryptedRecord.integrityHash
+            },
+
+            aesKey
+        );
+
+    try {
+
+        return JSON.parse(
+            plaintext
+        );
+
+    } catch {
+
+        throw new Error(
+            "Decrypted storage data is invalid JSON"
+        );
+    }
+}
+
+
+/* -----------------------------------------------------
+   PART 5.11 — CREATE ENCRYPTED DATA RECORD
+----------------------------------------------------- */
+
+function shCreateStoredRecord(
+    category,
+    data
+) {
+
+    shValidateDataCategory(
+        category
+    );
+
+    if (
+        data === undefined
+    ) {
+
+        throw new Error(
+            "Stored data is required"
+        );
+    }
+
+    const recordId =
+        shCreateStorageRecordId();
+
+    const encrypted =
+        shEncryptStoredData(
+            data
+        );
+
+    return {
+
+        id:
+            recordId,
+
+        category:
+            category,
+
+        createdAt:
+            new Date().toISOString(),
+
+        updatedAt:
+            new Date().toISOString(),
+
+        encryptedData:
+            encrypted
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 5.12 — SAVE NEW ENCRYPTED RECORD
+----------------------------------------------------- */
+
+function shSaveEncryptedRecord(
+    category,
+    data
+) {
+
+    const storage =
+        shReadStorageFile();
+
+    const record =
+        shCreateStoredRecord(
+            category,
+            data
+        );
+
+    storage.records[
+        record.id
+    ] = record;
+
+    shWriteStorageFile(
+        storage
+    );
+
+    return {
+
+        id:
+            record.id,
+
+        category:
+            record.category,
+
+        createdAt:
+            record.createdAt,
+
+        updatedAt:
+            record.updatedAt
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 5.13 — READ ENCRYPTED RECORD
+----------------------------------------------------- */
+
+function shReadEncryptedRecord(
+    recordId
+) {
+
+    if (
+        typeof recordId !== "string" ||
+        !recordId
+    ) {
+
+        throw new Error(
+            "Record ID is required"
+        );
+    }
+
+    const storage =
+        shReadStorageFile();
+
+    const record =
+        storage.records[
+            recordId
+        ];
+
+    if (!record) {
+
+        return null;
+    }
+
+    const data =
+        shDecryptStoredData(
+            record.encryptedData
+        );
+
+    return {
+
+        id:
+            record.id,
+
+        category:
+            record.category,
+
+        createdAt:
+            record.createdAt,
+
+        updatedAt:
+            record.updatedAt,
+
+        data:
+            data
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 5.14 — UPDATE ENCRYPTED RECORD
+----------------------------------------------------- */
+
+function shUpdateEncryptedRecord(
+    recordId,
+    category,
+    data
+) {
+
+    shValidateDataCategory(
+        category
+    );
+
+    if (
+        typeof recordId !== "string" ||
+        !recordId
+    ) {
+
+        throw new Error(
+            "Record ID is required"
+        );
+    }
+
+    const storage =
+        shReadStorageFile();
+
+    const existing =
+        storage.records[
+            recordId
+        ];
+
+    if (!existing) {
+
+        throw new Error(
+            "Storage record not found"
+        );
+    }
+
+    const encrypted =
+        shEncryptStoredData(
+            data
+        );
+
+    existing.category =
+        category;
+
+    existing.updatedAt =
+        new Date().toISOString();
+
+    existing.encryptedData =
+        encrypted;
+
+    storage.records[
+        recordId
+    ] = existing;
+
+    shWriteStorageFile(
+        storage
+    );
+
+    return {
+
+        success:
+            true,
+
+        id:
+            existing.id,
+
+        category:
+            existing.category,
+
+        updatedAt:
+            existing.updatedAt
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 5.15 — DELETE ENCRYPTED RECORD
+----------------------------------------------------- */
+
+function shDeleteEncryptedRecord(
+    recordId
+) {
+
+    if (
+        typeof recordId !== "string" ||
+        !recordId
+    ) {
+
+        throw new Error(
+            "Record ID is required"
+        );
+    }
+
+    const storage =
+        shReadStorageFile();
+
+    if (
+        !storage.records[
+            recordId
+        ]
+    ) {
+
+        return false;
+    }
+
+    delete storage.records[
+        recordId
+    ];
+
+    shWriteStorageFile(
+        storage
+    );
+
+    return true;
+}
+
+
+/* -----------------------------------------------------
+   PART 5.16 — COUNT RECORDS
+----------------------------------------------------- */
+
+function shCountStorageRecords() {
+
+    const storage =
+        shReadStorageFile();
+
+    return Object.keys(
+        storage.records
+    ).length;
+}
+
+
+/* -----------------------------------------------------
+   PART 5.17 — SECURE STORAGE STATUS
+----------------------------------------------------- */
+
+shRegisterRoute(
+    "GET",
+    "/api/backend/storage-status",
+    async function (
+        req,
+        res,
+        requestId
+    ) {
+
+        try {
+
+            const count =
+                shCountStorageRecords();
+
+            sendJSON(
+                res,
+                200,
+                {
+
+                    success:
+                        true,
+
+                    storage:
+                        "Encrypted Server-Side Storage",
+
+                    provider:
+                        "Oracle Cloud Infrastructure",
+
+                    backendServerCount:
+                        1,
+
+                    encryption:
+                        "AES-256-GCM",
+
+                    integrity:
+                        "SHA-384",
+
+                    keyProtection:
+                        "RSA-3072",
+
+                    signature:
+                        "RSA-PSS + SHA-384",
+
+                    plaintextStorage:
+                        false,
+
+                    recordCount:
+                        count,
+
+                    requestId:
+                        requestId
+                }
+            );
+
+        } catch (error) {
+
+            sendJSON(
+                res,
+                500,
+                {
+
+                    success:
+                        false,
+
+                    error:
+                        "Secure storage unavailable",
+
+                    requestId:
+                        requestId
+                }
+            );
+        }
+    }
+);
+
+
+/* -----------------------------------------------------
+   PART 5.18 — STORAGE INITIALIZATION
+----------------------------------------------------- */
+
+try {
+
+    shEnsureStorageDirectory();
+
+    const initialStorage =
+        shReadStorageFile();
+
+    shWriteStorageFile(
+        initialStorage
+    );
+
+    console.log(
+        "Smart Hub Part 5 Secure Storage initialized."
+    );
+
+} catch (error) {
+
+    console.error(
+        "Smart Hub Part 5 storage initialization failed:",
+        error.message
+    );
+}
