@@ -1798,3 +1798,929 @@ console.log(
 console.log(
     "Smart Hub continues to use ONE Oracle OCI Backend Server."
 );
+
+/*
+========================================================
+SMART HUB — ORACLE OCI BACKEND
+PART 4 — CRYPTOGRAPHIC CORE
+========================================================
+
+Purpose:
+- AES-256-GCM for encrypted App Data
+- SHA-384 for integrity verification
+- RSA-3072 for cryptographic key protection/signatures
+- Secure random IVs and keys
+- Versioned encryption envelope
+- No cryptographic secrets hard-coded in source code
+
+Important:
+- This is ONE Smart Hub Backend Server.
+- Search Engines remain separate external services.
+- Supabase is NOT used.
+- Cloudflare is NOT used.
+- Password authentication will use Argon2id in a later
+  authentication layer.
+========================================================
+*/
+
+
+/* -----------------------------------------------------
+   PART 4.1 — CRYPTOGRAPHIC CONFIGURATION
+----------------------------------------------------- */
+
+const SH_CRYPTO_CONFIG = Object.freeze({
+
+    encryptionAlgorithm:
+        "AES-256-GCM",
+
+    integrityAlgorithm:
+        "SHA-384",
+
+    rsaAlgorithm:
+        "RSA-3072",
+
+    rsaPadding:
+        "RSA_PKCS1_OAEP",
+
+    rsaSignature:
+        "RSA-PSS",
+
+    rsaHash:
+        "SHA-384",
+
+    aesKeyLength:
+        32, // 256 bits
+
+    aesIvLength:
+        12, // recommended GCM IV length
+
+    aesAuthTagLength:
+        16, // 128-bit authentication tag
+
+    rsaKeySize:
+        3072,
+
+    envelopeVersion:
+        1
+});
+
+
+/* -----------------------------------------------------
+   PART 4.2 — SECURE RANDOM BYTES
+----------------------------------------------------- */
+
+function shRandomBytes(length) {
+
+    if (
+        !Number.isInteger(length) ||
+        length <= 0
+    ) {
+        throw new Error(
+            "Invalid random byte length"
+        );
+    }
+
+    return crypto.randomBytes(length);
+}
+
+
+/* -----------------------------------------------------
+   PART 4.3 — AES-256-GCM KEY GENERATION
+----------------------------------------------------- */
+
+function shGenerateAES256Key() {
+
+    return shRandomBytes(
+        SH_CRYPTO_CONFIG.aesKeyLength
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 4.4 — SHA-384 INTEGRITY DIGEST
+----------------------------------------------------- */
+
+function shSHA384(data) {
+
+    let input;
+
+    if (Buffer.isBuffer(data)) {
+
+        input = data;
+
+    } else if (typeof data === "string") {
+
+        input = Buffer.from(
+            data,
+            "utf8"
+        );
+
+    } else {
+
+        throw new Error(
+            "SHA-384 input must be a string or Buffer"
+        );
+    }
+
+    return crypto
+        .createHash("sha384")
+        .update(input)
+        .digest("hex");
+}
+
+
+/* -----------------------------------------------------
+   PART 4.5 — AES-256-GCM ENCRYPTION
+----------------------------------------------------- */
+
+function shAES256GCMEncrypt(
+    plaintext,
+    encryptionKey
+) {
+
+    if (
+        typeof plaintext !== "string"
+    ) {
+        throw new Error(
+            "Plaintext must be a string"
+        );
+    }
+
+    if (
+        !Buffer.isBuffer(encryptionKey) ||
+        encryptionKey.length !==
+        SH_CRYPTO_CONFIG.aesKeyLength
+    ) {
+        throw new Error(
+            "AES-256 key must be exactly 32 bytes"
+        );
+    }
+
+    const iv =
+        shRandomBytes(
+            SH_CRYPTO_CONFIG.aesIvLength
+        );
+
+    const cipher =
+        crypto.createCipheriv(
+            "aes-256-gcm",
+            encryptionKey,
+            iv
+        );
+
+    const encrypted =
+        Buffer.concat([
+            cipher.update(
+                plaintext,
+                "utf8"
+            ),
+            cipher.final()
+        ]);
+
+    const authTag =
+        cipher.getAuthTag();
+
+    const integrity =
+        shSHA384(
+            Buffer.concat([
+                iv,
+                authTag,
+                encrypted
+            ])
+        );
+
+    return {
+
+        version:
+            SH_CRYPTO_CONFIG.envelopeVersion,
+
+        algorithm:
+            SH_CRYPTO_CONFIG.encryptionAlgorithm,
+
+        integrityAlgorithm:
+            SH_CRYPTO_CONFIG.integrityAlgorithm,
+
+        iv:
+            iv.toString("base64"),
+
+        authTag:
+            authTag.toString("base64"),
+
+        ciphertext:
+            encrypted.toString("base64"),
+
+        integrity:
+            integrity
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 4.6 — AES-256-GCM DECRYPTION
+----------------------------------------------------- */
+
+function shAES256GCMDecrypt(
+    envelope,
+    encryptionKey
+) {
+
+    if (
+        !envelope ||
+        typeof envelope !== "object"
+    ) {
+        throw new Error(
+            "Invalid encryption envelope"
+        );
+    }
+
+    if (
+        envelope.algorithm !==
+        SH_CRYPTO_CONFIG.encryptionAlgorithm
+    ) {
+        throw new Error(
+            "Unsupported encryption algorithm"
+        );
+    }
+
+    if (
+        envelope.version !==
+        SH_CRYPTO_CONFIG.envelopeVersion
+    ) {
+        throw new Error(
+            "Unsupported encryption envelope version"
+        );
+    }
+
+    if (
+        !Buffer.isBuffer(encryptionKey) ||
+        encryptionKey.length !==
+        SH_CRYPTO_CONFIG.aesKeyLength
+    ) {
+        throw new Error(
+            "AES-256 key must be exactly 32 bytes"
+        );
+    }
+
+    const iv =
+        Buffer.from(
+            envelope.iv,
+            "base64"
+        );
+
+    const authTag =
+        Buffer.from(
+            envelope.authTag,
+            "base64"
+        );
+
+    const ciphertext =
+        Buffer.from(
+            envelope.ciphertext,
+            "base64"
+        );
+
+    if (
+        iv.length !==
+        SH_CRYPTO_CONFIG.aesIvLength
+    ) {
+        throw new Error(
+            "Invalid AES-GCM IV"
+        );
+    }
+
+    if (
+        authTag.length !==
+        SH_CRYPTO_CONFIG.aesAuthTagLength
+    ) {
+        throw new Error(
+            "Invalid AES-GCM authentication tag"
+        );
+    }
+
+    const calculatedIntegrity =
+        shSHA384(
+            Buffer.concat([
+                iv,
+                authTag,
+                ciphertext
+            ])
+        );
+
+    if (
+        typeof envelope.integrity !==
+        "string"
+    ) {
+        throw new Error(
+            "Missing integrity value"
+        );
+    }
+
+    const expectedIntegrity =
+        Buffer.from(
+            envelope.integrity,
+            "hex"
+        );
+
+    const actualIntegrity =
+        Buffer.from(
+            calculatedIntegrity,
+            "hex"
+        );
+
+    if (
+        expectedIntegrity.length !==
+        actualIntegrity.length ||
+        !crypto.timingSafeEqual(
+            expectedIntegrity,
+            actualIntegrity
+        )
+    ) {
+        throw new Error(
+            "Integrity verification failed"
+        );
+    }
+
+    const decipher =
+        crypto.createDecipheriv(
+            "aes-256-gcm",
+            encryptionKey,
+            iv
+        );
+
+    decipher.setAuthTag(
+        authTag
+    );
+
+    const decrypted =
+        Buffer.concat([
+            decipher.update(
+                ciphertext
+            ),
+            decipher.final()
+        ]);
+
+    return decrypted.toString(
+        "utf8"
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 4.7 — RSA-3072 KEY LOADING
+-----------------------------------------------------
+
+RSA private/public keys are NEVER written directly
+inside server.js.
+
+They will later be supplied securely through the
+Oracle OCI server environment / secret-management
+configuration.
+
+Expected environment variables:
+
+SH_RSA_PRIVATE_KEY
+SH_RSA_PUBLIC_KEY
+----------------------------------------------------- */
+
+function shGetRSAPrivateKey() {
+
+    const key =
+        process.env.SH_RSA_PRIVATE_KEY;
+
+    if (
+        !key ||
+        typeof key !== "string"
+    ) {
+        throw new Error(
+            "RSA private key is not configured"
+        );
+    }
+
+    return key;
+}
+
+
+function shGetRSAPublicKey() {
+
+    const key =
+        process.env.SH_RSA_PUBLIC_KEY;
+
+    if (
+        !key ||
+        typeof key !== "string"
+    ) {
+        throw new Error(
+            "RSA public key is not configured"
+        );
+    }
+
+    return key;
+}
+
+
+/* -----------------------------------------------------
+   PART 4.8 — RSA-3072 KEY WRAPPING
+-----------------------------------------------------
+
+RSA is NOT used to encrypt the entire Settings/Data.
+
+Instead:
+
+AES-256-GCM
+      ↓
+encrypts the actual data
+
+RSA-3072
+      ↓
+protects the AES encryption key
+
+This is the correct hybrid cryptographic structure.
+----------------------------------------------------- */
+
+function shRSA3072EncryptKey(
+    aesKey
+) {
+
+    if (
+        !Buffer.isBuffer(aesKey) ||
+        aesKey.length !==
+        SH_CRYPTO_CONFIG.aesKeyLength
+    ) {
+        throw new Error(
+            "Invalid AES key"
+        );
+    }
+
+    const publicKey =
+        shGetRSAPublicKey();
+
+    const encryptedKey =
+        crypto.publicEncrypt(
+            {
+                key:
+                    publicKey,
+
+                padding:
+                    crypto.constants
+                        .RSA_PKCS1_OAEP_PADDING,
+
+                oaepHash:
+                    "sha384"
+            },
+            aesKey
+        );
+
+    return encryptedKey.toString(
+        "base64"
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 4.9 — RSA-3072 KEY UNWRAPPING
+----------------------------------------------------- */
+
+function shRSA3072DecryptKey(
+    encryptedKeyBase64
+) {
+
+    if (
+        typeof encryptedKeyBase64 !==
+        "string"
+    ) {
+        throw new Error(
+            "Invalid encrypted AES key"
+        );
+    }
+
+    const privateKey =
+        shGetRSAPrivateKey();
+
+    const encryptedKey =
+        Buffer.from(
+            encryptedKeyBase64,
+            "base64"
+        );
+
+    const aesKey =
+        crypto.privateDecrypt(
+            {
+                key:
+                    privateKey,
+
+                padding:
+                    crypto.constants
+                        .RSA_PKCS1_OAEP_PADDING,
+
+                oaepHash:
+                    "sha384"
+            },
+            encryptedKey
+        );
+
+    if (
+        aesKey.length !==
+        SH_CRYPTO_CONFIG.aesKeyLength
+    ) {
+        throw new Error(
+            "Recovered AES key has invalid length"
+        );
+    }
+
+    return aesKey;
+}
+
+
+/* -----------------------------------------------------
+   PART 4.10 — RSA-3072 SIGNATURE
+-----------------------------------------------------
+
+SHA-384 + RSA-3072 are also used for
+cryptographic verification.
+
+RSA-PSS is used for the signature operation.
+
+This allows the server to verify that an important
+cryptographic envelope was produced by the trusted
+server key.
+----------------------------------------------------- */
+
+function shRSA3072Sign(
+    data
+) {
+
+    const privateKey =
+        shGetRSAPrivateKey();
+
+    const signer =
+        crypto.createSign(
+            "sha384"
+        );
+
+    signer.update(
+        data
+    );
+
+    signer.end();
+
+    const signature =
+        signer.sign({
+            key:
+                privateKey,
+
+            padding:
+                crypto.constants
+                    .RSA_PKCS1_PSS_PADDING,
+
+            saltLength:
+                crypto.constants
+                    .RSA_PSS_SALTLEN_DIGEST
+        });
+
+    return signature.toString(
+        "base64"
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 4.11 — RSA-3072 SIGNATURE VERIFICATION
+----------------------------------------------------- */
+
+function shRSA3072Verify(
+    data,
+    signatureBase64
+) {
+
+    if (
+        typeof signatureBase64 !==
+        "string"
+    ) {
+        return false;
+    }
+
+    const publicKey =
+        shGetRSAPublicKey();
+
+    const verifier =
+        crypto.createVerify(
+            "sha384"
+        );
+
+    verifier.update(
+        data
+    );
+
+    verifier.end();
+
+    return verifier.verify(
+        {
+            key:
+                publicKey,
+
+            padding:
+                crypto.constants
+                    .RSA_PKCS1_PSS_PADDING,
+
+            saltLength:
+                crypto.constants
+                    .RSA_PSS_SALTLEN_DIGEST
+        },
+
+        Buffer.from(
+            signatureBase64,
+            "base64"
+        )
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 4.12 — CRYPTOGRAPHIC ENVELOPE
+-----------------------------------------------------
+
+This creates the basic structure we will later use
+for Settings, Search History, Links, App Preferences,
+Earnings data and other Smart Hub server-side data.
+----------------------------------------------------- */
+
+function shCreateCryptoEnvelope(
+    plaintext
+) {
+
+    const aesKey =
+        shGenerateAES256Key();
+
+    const encrypted =
+        shAES256GCMEncrypt(
+            plaintext,
+            aesKey
+        );
+
+    const encryptedAESKey =
+        shRSA3072EncryptKey(
+            aesKey
+        );
+
+    const signedPayload =
+        JSON.stringify({
+            version:
+                encrypted.version,
+
+            algorithm:
+                encrypted.algorithm,
+
+            integrityAlgorithm:
+                encrypted.integrityAlgorithm,
+
+            iv:
+                encrypted.iv,
+
+            authTag:
+                encrypted.authTag,
+
+            ciphertext:
+                encrypted.ciphertext,
+
+            integrity:
+                encrypted.integrity,
+
+            encryptedKey:
+                encryptedAESKey
+        });
+
+    const signature =
+        shRSA3072Sign(
+            signedPayload
+        );
+
+    return {
+
+        version:
+            encrypted.version,
+
+        encryption:
+            encrypted.algorithm,
+
+        integrity:
+            encrypted.integrityAlgorithm,
+
+        iv:
+            encrypted.iv,
+
+        authTag:
+            encrypted.authTag,
+
+        ciphertext:
+            encrypted.ciphertext,
+
+        integrityHash:
+            encrypted.integrity,
+
+        encryptedKey:
+            encryptedAESKey,
+
+        signature:
+            signature
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 4.13 — CRYPTOGRAPHIC ENVELOPE OPENING
+----------------------------------------------------- */
+
+function shOpenCryptoEnvelope(
+    envelope
+) {
+
+    if (
+        !envelope ||
+        typeof envelope !== "object"
+    ) {
+        throw new Error(
+            "Invalid cryptographic envelope"
+        );
+    }
+
+    const signedPayload =
+        JSON.stringify({
+            version:
+                envelope.version,
+
+            algorithm:
+                envelope.encryption,
+
+            integrityAlgorithm:
+                envelope.integrity,
+
+            iv:
+                envelope.iv,
+
+            authTag:
+                envelope.authTag,
+
+            ciphertext:
+                envelope.ciphertext,
+
+            integrity:
+                envelope.integrityHash,
+
+            encryptedKey:
+                envelope.encryptedKey
+        });
+
+    const validSignature =
+        shRSA3072Verify(
+            signedPayload,
+            envelope.signature
+        );
+
+    if (!validSignature) {
+        throw new Error(
+            "RSA-3072 signature verification failed"
+        );
+    }
+
+    const aesKey =
+        shRSA3072DecryptKey(
+            envelope.encryptedKey
+        );
+
+    return shAES256GCMDecrypt(
+        {
+            version:
+                envelope.version,
+
+            algorithm:
+                envelope.encryption,
+
+            integrityAlgorithm:
+                envelope.integrity,
+
+            iv:
+                envelope.iv,
+
+            authTag:
+                envelope.authTag,
+
+            ciphertext:
+                envelope.ciphertext,
+
+            integrity:
+                envelope.integrityHash
+        },
+
+        aesKey
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 4.14 — CRYPTOGRAPHIC STATUS
+----------------------------------------------------- */
+
+shRegisterRoute(
+    "GET",
+    "/api/backend/crypto-status",
+    async function (
+        req,
+        res,
+        requestId
+    ) {
+
+        const rsaConfigured =
+            Boolean(
+                process.env.SH_RSA_PRIVATE_KEY &&
+                process.env.SH_RSA_PUBLIC_KEY
+            );
+
+        sendJSON(
+            res,
+            200,
+            {
+                success: true,
+
+                cryptography: {
+
+                    dataEncryption:
+                        "AES-256-GCM",
+
+                    integrityVerification:
+                        "SHA-384",
+
+                    keyProtection:
+                        "RSA-3072",
+
+                    rsaSignature:
+                        "RSA-PSS + SHA-384",
+
+                    passwordHashing:
+                        "Argon2id",
+
+                    transportSecurity:
+                        "TLS 1.3",
+
+                    rsaKeysConfigured:
+                        rsaConfigured
+                },
+
+                backend:
+                    "Oracle Cloud Infrastructure",
+
+                serverCount:
+                    1,
+
+                requestId
+            }
+        );
+    }
+);
+
+
+/* -----------------------------------------------------
+   PART 4.15 — CRYPTOGRAPHIC ARCHITECTURE
+----------------------------------------------------- */
+
+const SH_CRYPTO_ARCHITECTURE =
+    Object.freeze({
+
+        backend:
+            "Oracle Cloud Infrastructure",
+
+        backendServerCount:
+            1,
+
+        transport:
+            "TLS 1.3",
+
+        storedData:
+            "AES-256-GCM",
+
+        integrity:
+            "SHA-384",
+
+        keyProtection:
+            "RSA-3072",
+
+        passwordSecurity:
+            "Argon2id",
+
+        searchEngines:
+            "External services",
+
+        supabase:
+            false,
+
+        cloudflare:
+            false
+    });
+
+
+console.log(
+    "Smart Hub Part 4 Cryptographic Core initialized."
+);
+
+console.log(
+    "AES-256-GCM + SHA-384 + RSA-3072 cryptographic layer ready."
+);
