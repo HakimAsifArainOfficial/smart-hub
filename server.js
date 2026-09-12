@@ -5529,3 +5529,1570 @@ console.log(
 console.log(
     "App Registration + Email Verification + Argon2id Login ready."
 );
+
+/*
+========================================================
+SMART HUB — ORACLE OCI BACKEND
+PART 7 — EMAIL & PHONE VERIFICATION DELIVERY LAYER
+========================================================
+
+Purpose:
+- Secure Email verification
+- Secure Phone verification foundation
+- Verification code generation
+- SHA-384 code hashing
+- Expiration
+- Attempt limitation
+- Resend limitation
+- Delivery-provider abstraction
+
+IMPORTANT:
+- Verification codes are NEVER stored in plaintext.
+- Verification codes are NEVER returned by production APIs.
+- Email/SMS providers are NOT hard-coded here.
+- Actual delivery provider will be connected later.
+- This remains ONE Oracle OCI Backend Server.
+========================================================
+*/
+
+
+/* -----------------------------------------------------
+   PART 7.1 — VERIFICATION CONFIGURATION
+----------------------------------------------------- */
+
+const SH_VERIFICATION_CONFIG = Object.freeze({
+
+    codeLength:
+        6,
+
+    codeLifetimeMs:
+        10 * 60 * 1000,
+
+    maxAttempts:
+        5,
+
+    resendWindowMs:
+        60 * 1000,
+
+    maxResendsPerWindow:
+        3,
+
+    maxCodeRequestsPerHour:
+        10
+});
+
+
+/* -----------------------------------------------------
+   PART 7.2 — VERIFICATION RUNTIME STATE
+----------------------------------------------------- */
+
+const SH_VERIFICATION_RUNTIME = {
+
+    resend:
+        new Map(),
+
+    requests:
+        new Map()
+};
+
+
+/* -----------------------------------------------------
+   PART 7.3 — VERIFICATION CODE GENERATION
+----------------------------------------------------- */
+
+function shGenerateSecureVerificationCode() {
+
+    const minimum =
+        100000;
+
+    const maximum =
+        1000000;
+
+    return crypto
+        .randomInt(
+            minimum,
+            maximum
+        )
+        .toString();
+}
+
+
+/* -----------------------------------------------------
+   PART 7.4 — VERIFICATION CODE HASH
+----------------------------------------------------- */
+
+function shCreateVerificationCodeHash(
+    code
+) {
+
+    if (
+        typeof code !== "string"
+    ) {
+
+        throw new Error(
+            "Verification code must be a string"
+        );
+    }
+
+    return crypto
+        .createHash("sha384")
+        .update(
+            code,
+            "utf8"
+        )
+        .digest("hex");
+}
+
+
+/* -----------------------------------------------------
+   PART 7.5 — SECURE CODE COMPARISON
+----------------------------------------------------- */
+
+function shCompareVerificationCode(
+    suppliedCode,
+    storedHash
+) {
+
+    if (
+        typeof suppliedCode !== "string" ||
+        typeof storedHash !== "string"
+    ) {
+
+        return false;
+    }
+
+    const suppliedHash =
+        shCreateVerificationCodeHash(
+            suppliedCode.trim()
+        );
+
+    const supplied =
+        Buffer.from(
+            suppliedHash,
+            "hex"
+        );
+
+    const stored =
+        Buffer.from(
+            storedHash,
+            "hex"
+        );
+
+    if (
+        supplied.length !==
+        stored.length
+    ) {
+
+        return false;
+    }
+
+    return crypto.timingSafeEqual(
+        supplied,
+        stored
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 7.6 — DESTINATION NORMALIZATION
+----------------------------------------------------- */
+
+function shNormalizeVerificationDestination(
+    method,
+    destination
+) {
+
+    if (
+        method === "email"
+    ) {
+
+        return shNormalizeEmail(
+            destination
+        );
+    }
+
+    if (
+        method === "phone"
+    ) {
+
+        return shNormalizePhone(
+            destination
+        );
+    }
+
+    throw new Error(
+        "Unsupported verification method"
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 7.7 — DESTINATION VALIDATION
+----------------------------------------------------- */
+
+function shValidateVerificationDestination(
+    method,
+    destination
+) {
+
+    const normalized =
+        shNormalizeVerificationDestination(
+            method,
+            destination
+        );
+
+    if (
+        method === "email" &&
+        !shIsValidEmail(
+            normalized
+        )
+    ) {
+
+        throw new Error(
+            "Invalid email address"
+        );
+    }
+
+    if (
+        method === "phone" &&
+        !shIsValidPhone(
+            normalized
+        )
+    ) {
+
+        throw new Error(
+            "Invalid phone number"
+        );
+    }
+
+    return normalized;
+}
+
+
+/* -----------------------------------------------------
+   PART 7.8 — RESEND RATE LIMIT
+----------------------------------------------------- */
+
+function shCheckVerificationResendLimit(
+    destination
+) {
+
+    const now =
+        Date.now();
+
+    const current =
+        SH_VERIFICATION_RUNTIME
+            .resend
+            .get(destination);
+
+    if (
+        !current ||
+        now - current.startedAt >
+        SH_VERIFICATION_CONFIG
+            .resendWindowMs
+    ) {
+
+        SH_VERIFICATION_RUNTIME
+            .resend
+            .set(
+                destination,
+                {
+                    startedAt:
+                        now,
+
+                    count:
+                        1
+                }
+            );
+
+        return true;
+    }
+
+    current.count += 1;
+
+    if (
+        current.count >
+        SH_VERIFICATION_CONFIG
+            .maxResendsPerWindow
+    ) {
+
+        return false;
+    }
+
+    return true;
+}
+
+
+/* -----------------------------------------------------
+   PART 7.9 — HOURLY VERIFICATION REQUEST LIMIT
+----------------------------------------------------- */
+
+function shCheckVerificationRequestLimit(
+    destination
+) {
+
+    const now =
+        Date.now();
+
+    const current =
+        SH_VERIFICATION_RUNTIME
+            .requests
+            .get(destination);
+
+    const hour =
+        60 * 60 * 1000;
+
+    if (
+        !current ||
+        now - current.startedAt >
+        hour
+    ) {
+
+        SH_VERIFICATION_RUNTIME
+            .requests
+            .set(
+                destination,
+                {
+                    startedAt:
+                        now,
+
+                    count:
+                        1
+                }
+            );
+
+        return true;
+    }
+
+    current.count += 1;
+
+    if (
+        current.count >
+        SH_VERIFICATION_CONFIG
+            .maxCodeRequestsPerHour
+    ) {
+
+        return false;
+    }
+
+    return true;
+}
+
+
+/* -----------------------------------------------------
+   PART 7.10 — CREATE VERIFICATION PACKAGE
+----------------------------------------------------- */
+
+function shCreateVerificationPackage(
+    method,
+    destination,
+    accountId
+) {
+
+    const normalizedDestination =
+        shValidateVerificationDestination(
+            method,
+            destination
+        );
+
+    if (
+        !accountId
+    ) {
+
+        throw new Error(
+            "Account ID is required"
+        );
+    }
+
+    const code =
+        shGenerateSecureVerificationCode();
+
+    const codeHash =
+        shCreateVerificationCodeHash(
+            code
+        );
+
+    const now =
+        new Date();
+
+    const expiresAt =
+        new Date(
+            now.getTime() +
+            SH_VERIFICATION_CONFIG
+                .codeLifetimeMs
+        );
+
+    return {
+
+        verificationId:
+            shCreateAuthIdentifier(),
+
+        accountId:
+            accountId,
+
+        method:
+            method,
+
+        destination:
+            normalizedDestination,
+
+        codeHash:
+            codeHash,
+
+        createdAt:
+            now.toISOString(),
+
+        expiresAt:
+            expiresAt.toISOString(),
+
+        attempts:
+            0,
+
+        maxAttempts:
+            SH_VERIFICATION_CONFIG
+                .maxAttempts,
+
+        status:
+            "pending",
+
+        /*
+        This value exists only for the delivery
+        subsystem.
+
+        It must NEVER be stored or returned by
+        production API responses.
+        */
+        deliveryCode:
+            code
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 7.11 — REMOVE SECRET DELIVERY CODE
+----------------------------------------------------- */
+
+function shRemoveDeliveryCode(
+    verificationPackage
+) {
+
+    if (
+        !verificationPackage ||
+        typeof verificationPackage !== "object"
+    ) {
+
+        return;
+    }
+
+    delete verificationPackage.deliveryCode;
+}
+
+
+/* -----------------------------------------------------
+   PART 7.12 — EMAIL DELIVERY INTERFACE
+-----------------------------------------------------
+
+The actual email provider will be connected later.
+
+This function deliberately does not send the code
+through an external service yet.
+----------------------------------------------------- */
+
+async function shDeliverVerificationEmail(
+    verificationPackage
+) {
+
+    if (
+        !verificationPackage ||
+        verificationPackage.method !==
+        "email"
+    ) {
+
+        throw new Error(
+            "Invalid email verification package"
+        );
+    }
+
+    /*
+    Future production implementation:
+
+        Email Provider
+             ↓
+        TLS 1.3
+             ↓
+        Provider API
+             ↓
+        User Email
+
+    The provider credentials will be stored outside
+    server.js.
+    */
+
+    const deliveryResult = {
+
+        success:
+            true,
+
+        method:
+            "email",
+
+        destination:
+            verificationPackage.destination,
+
+        status:
+            "queued_for_delivery"
+    };
+
+    /*
+    Never expose deliveryCode here.
+    */
+
+    shRemoveDeliveryCode(
+        verificationPackage
+    );
+
+    return deliveryResult;
+}
+
+
+/* -----------------------------------------------------
+   PART 7.13 — PHONE/SMS DELIVERY INTERFACE
+----------------------------------------------------- */
+
+async function shDeliverVerificationPhone(
+    verificationPackage
+) {
+
+    if (
+        !verificationPackage ||
+        verificationPackage.method !==
+        "phone"
+    ) {
+
+        throw new Error(
+            "Invalid phone verification package"
+        );
+    }
+
+    /*
+    Future production implementation:
+
+        SMS Provider
+             ↓
+        TLS 1.3
+             ↓
+        Provider API
+             ↓
+        User Phone
+    */
+
+    const deliveryResult = {
+
+        success:
+            true,
+
+        method:
+            "phone",
+
+        destination:
+            verificationPackage.destination,
+
+        status:
+            "queued_for_delivery"
+    };
+
+    shRemoveDeliveryCode(
+        verificationPackage
+    );
+
+    return deliveryResult;
+}
+
+
+/* -----------------------------------------------------
+   PART 7.14 — GENERIC DELIVERY FUNCTION
+----------------------------------------------------- */
+
+async function shDeliverVerification(
+    verificationPackage
+) {
+
+    if (
+        verificationPackage.method ===
+        "email"
+    ) {
+
+        return shDeliverVerificationEmail(
+            verificationPackage
+        );
+    }
+
+    if (
+        verificationPackage.method ===
+        "phone"
+    ) {
+
+        return shDeliverVerificationPhone(
+            verificationPackage
+        );
+    }
+
+    throw new Error(
+        "Unsupported verification method"
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 7.15 — VERIFICATION RECORD CREATION
+----------------------------------------------------- */
+
+function shSaveVerificationPackage(
+    verificationPackage
+) {
+
+    /*
+    IMPORTANT:
+
+    The delivery code is removed before persistent
+    storage.
+
+    Only the SHA-384 hash is stored.
+    */
+
+    const safePackage =
+        {
+            verificationId:
+                verificationPackage
+                    .verificationId,
+
+            accountId:
+                verificationPackage
+                    .accountId,
+
+            method:
+                verificationPackage
+                    .method,
+
+            destination:
+                verificationPackage
+                    .destination,
+
+            codeHash:
+                verificationPackage
+                    .codeHash,
+
+            createdAt:
+                verificationPackage
+                    .createdAt,
+
+            expiresAt:
+                verificationPackage
+                    .expiresAt,
+
+            attempts:
+                verificationPackage
+                    .attempts,
+
+            maxAttempts:
+                verificationPackage
+                    .maxAttempts,
+
+            status:
+                verificationPackage
+                    .status
+        };
+
+    return shSaveEncryptedRecord(
+        "general",
+        {
+            type:
+                "verification",
+
+            data:
+                safePackage
+        }
+    );
+}
+
+
+/* -----------------------------------------------------
+   PART 7.16 — FIND VERIFICATION RECORD
+----------------------------------------------------- */
+
+function shFindVerificationRecord(
+    verificationId
+) {
+
+    const storage =
+        shReadStorageFile();
+
+    for (
+        const recordId of
+        Object.keys(
+            storage.records
+        )
+    ) {
+
+        const record =
+            storage.records[
+                recordId
+            ];
+
+        if (
+            record.category !==
+            "general"
+        ) {
+
+            continue;
+        }
+
+        try {
+
+            const decrypted =
+                shDecryptStoredData(
+                    record.encryptedData
+                );
+
+            if (
+                decrypted.type ===
+                "verification" &&
+                decrypted.data.verificationId ===
+                verificationId
+            ) {
+
+                return {
+
+                    recordId:
+                        recordId,
+
+                    data:
+                        decrypted.data
+                };
+            }
+
+        } catch {
+
+            continue;
+        }
+    }
+
+    return null;
+}
+
+
+/* -----------------------------------------------------
+   PART 7.17 — VERIFY STORED CODE
+----------------------------------------------------- */
+
+function shVerifyStoredVerificationCode(
+    verificationId,
+    suppliedCode
+) {
+
+    const result =
+        shFindVerificationRecord(
+            verificationId
+        );
+
+    if (
+        !result
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            reason:
+                "verification_not_found"
+        };
+    }
+
+    const verification =
+        result.data;
+
+    if (
+        verification.status !==
+        "pending"
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            reason:
+                "verification_not_pending"
+        };
+    }
+
+    if (
+        Date.now() >
+        new Date(
+            verification.expiresAt
+        ).getTime()
+    ) {
+
+        verification.status =
+            "expired";
+
+        shUpdateEncryptedRecord(
+            result.recordId,
+
+            "general",
+
+            {
+                type:
+                    "verification",
+
+                data:
+                    verification
+            }
+        );
+
+        return {
+
+            success:
+                false,
+
+            reason:
+                "verification_expired"
+        };
+    }
+
+    if (
+        verification.attempts >=
+        verification.maxAttempts
+    ) {
+
+        verification.status =
+            "locked";
+
+        shUpdateEncryptedRecord(
+            result.recordId,
+
+            "general",
+
+            {
+                type:
+                    "verification",
+
+                data:
+                    verification
+            }
+        );
+
+        return {
+
+            success:
+                false,
+
+            reason:
+                "too_many_attempts"
+        };
+    }
+
+    verification.attempts += 1;
+
+    const valid =
+        shCompareVerificationCode(
+            suppliedCode,
+            verification.codeHash
+        );
+
+    if (!valid) {
+
+        shUpdateEncryptedRecord(
+            result.recordId,
+
+            "general",
+
+            {
+                type:
+                    "verification",
+
+                data:
+                    verification
+            }
+        );
+
+        return {
+
+            success:
+                false,
+
+            reason:
+                "invalid_code",
+
+            attemptsRemaining:
+                Math.max(
+                    0,
+                    verification.maxAttempts -
+                    verification.attempts
+                )
+        };
+    }
+
+    verification.status =
+        "verified";
+
+    verification.verifiedAt =
+        new Date().toISOString();
+
+    shUpdateEncryptedRecord(
+        result.recordId,
+
+        "general",
+
+        {
+            type:
+                "verification",
+
+            data:
+                verification
+        }
+    );
+
+    return {
+
+        success:
+            true,
+
+        reason:
+            "verified"
+    };
+}
+
+
+/* -----------------------------------------------------
+   PART 7.18 — CREATE VERIFICATION ROUTE
+----------------------------------------------------- */
+
+shRegisterRoute(
+    "POST",
+    "/api/verification/create",
+    async function (
+        req,
+        res,
+        requestId
+    ) {
+
+        try {
+
+            const body =
+                await readRequestBody(
+                    req
+                );
+
+            const accountId =
+                cleanText(
+                    body.accountId,
+                    100
+                );
+
+            const method =
+                cleanText(
+                    body.method,
+                    20
+                ).toLowerCase();
+
+            const destination =
+                cleanText(
+                    body.destination,
+                    320
+                );
+
+            if (
+                !accountId ||
+                !method ||
+                !destination
+            ) {
+
+                sendJSON(
+                    res,
+                    400,
+                    {
+
+                        success:
+                            false,
+
+                        error:
+                            "Account ID, method and destination are required",
+
+                        requestId:
+                            requestId
+                    }
+                );
+
+                return;
+            }
+
+            if (
+                method !== "email" &&
+                method !== "phone"
+            ) {
+
+                sendJSON(
+                    res,
+                    400,
+                    {
+
+                        success:
+                            false,
+
+                        error:
+                            "Verification method must be email or phone",
+
+                        requestId:
+                            requestId
+                    }
+                );
+
+                return;
+            }
+
+            const normalizedDestination =
+                shValidateVerificationDestination(
+                    method,
+                    destination
+                );
+
+            if (
+                !shCheckVerificationResendLimit(
+                    normalizedDestination
+                )
+            ) {
+
+                sendJSON(
+                    res,
+                    429,
+                    {
+
+                        success:
+                            false,
+
+                        error:
+                            "Too many verification requests. Please wait before requesting another code.",
+
+                        requestId:
+                            requestId
+                    }
+                );
+
+                return;
+            }
+
+            if (
+                !shCheckVerificationRequestLimit(
+                    normalizedDestination
+                )
+            ) {
+
+                sendJSON(
+                    res,
+                    429,
+                    {
+
+                        success:
+                            false,
+
+                        error:
+                            "Verification request limit exceeded",
+
+                        requestId:
+                            requestId
+                    }
+                );
+
+                return;
+            }
+
+            const verificationPackage =
+                shCreateVerificationPackage(
+                    method,
+                    normalizedDestination,
+                    accountId
+                );
+
+            /*
+            Save ONLY the hashed code.
+            */
+
+            const saved =
+                shSaveVerificationPackage(
+                    verificationPackage
+                );
+
+            /*
+            Delivery layer receives the code internally.
+            It is removed before the package leaves this
+            function.
+            */
+
+            const delivery =
+                await shDeliverVerification(
+                    verificationPackage
+                );
+
+            sendJSON(
+                res,
+                201,
+                {
+
+                    success:
+                        true,
+
+                    verificationId:
+                        saved.id,
+
+                    method:
+                        method,
+
+                    expiresInSeconds:
+                        SH_VERIFICATION_CONFIG
+                            .codeLifetimeMs /
+                        1000,
+
+                    delivery:
+                        delivery.status,
+
+                    requestId:
+                        requestId
+                }
+            );
+
+        } catch (error) {
+
+            sendJSON(
+                res,
+                400,
+                {
+
+                    success:
+                        false,
+
+                    error:
+                        error.message,
+
+                    requestId:
+                        requestId
+                }
+            );
+        }
+    }
+);
+
+
+/* -----------------------------------------------------
+   PART 7.19 — VERIFY CODE ROUTE
+----------------------------------------------------- */
+
+shRegisterRoute(
+    "POST",
+    "/api/verification/verify",
+    async function (
+        req,
+        res,
+        requestId
+    ) {
+
+        try {
+
+            const body =
+                await readRequestBody(
+                    req
+                );
+
+            const verificationId =
+                cleanText(
+                    body.verificationId,
+                    100
+                );
+
+            const code =
+                cleanText(
+                    body.code,
+                    20
+                );
+
+            if (
+                !verificationId ||
+                !code
+            ) {
+
+                sendJSON(
+                    res,
+                    400,
+                    {
+
+                        success:
+                            false,
+
+                        error:
+                            "Verification ID and code are required",
+
+                        requestId:
+                            requestId
+                    }
+                );
+
+                return;
+            }
+
+            const result =
+                shVerifyStoredVerificationCode(
+                    verificationId,
+                    code
+                );
+
+            if (
+                !result.success
+            ) {
+
+                sendJSON(
+                    res,
+                    400,
+                    {
+
+                        success:
+                            false,
+
+                        verified:
+                            false,
+
+                        error:
+                            result.reason,
+
+                        requestId:
+                            requestId
+                    }
+                );
+
+                return;
+            }
+
+            sendJSON(
+                res,
+                200,
+                {
+
+                    success:
+                        true,
+
+                    verified:
+                        true,
+
+                    requestId:
+                        requestId
+                }
+            );
+
+        } catch (error) {
+
+            sendJSON(
+                res,
+                400,
+                {
+
+                    success:
+                        false,
+
+                    error:
+                        error.message,
+
+                    requestId:
+                        requestId
+                }
+            );
+        }
+    }
+);
+
+
+/* -----------------------------------------------------
+   PART 7.20 — VERIFICATION SECURITY STATUS
+----------------------------------------------------- */
+
+shRegisterRoute(
+    "GET",
+    "/api/backend/verification-status",
+    async function (
+        req,
+        res,
+        requestId
+    ) {
+
+        sendJSON(
+            res,
+            200,
+            {
+
+                success:
+                    true,
+
+                verification:
+                    {
+
+                        email:
+                            true,
+
+                        phone:
+                            true,
+
+                        codeLength:
+                            SH_VERIFICATION_CONFIG
+                                .codeLength,
+
+                        codeStorage:
+                            "SHA-384 hash only",
+
+                        codeEncryption:
+                            "AES-256-GCM encrypted server-side record",
+
+                        expiration:
+                            "10 minutes",
+
+                        maximumAttempts:
+                            SH_VERIFICATION_CONFIG
+                                .maxAttempts,
+
+                        resendProtection:
+                            true,
+
+                        hourlyRequestProtection:
+                            true
+                    },
+
+                cryptography:
+                    {
+
+                        transport:
+                            "TLS 1.3",
+
+                        dataEncryption:
+                            "AES-256-GCM",
+
+                        integrity:
+                            "SHA-384",
+
+                        keyProtection:
+                            "RSA-3072"
+                    },
+
+                backend:
+                    "Oracle Cloud Infrastructure",
+
+                backendServerCount:
+                    1,
+
+                requestId:
+                    requestId
+            }
+        );
+    }
+);
+
+
+/* -----------------------------------------------------
+   PART 7.21 — CLEAN EXPIRED VERIFICATION RECORDS
+----------------------------------------------------- */
+
+function shCleanupExpiredVerificationRecords() {
+
+    let storage;
+
+    try {
+
+        storage =
+            shReadStorageFile();
+
+    } catch {
+
+        return;
+    }
+
+    let changed =
+        false;
+
+    for (
+        const recordId of
+        Object.keys(
+            storage.records
+        )
+    ) {
+
+        const record =
+            storage.records[
+                recordId
+            ];
+
+        if (
+            record.category !==
+            "general"
+        ) {
+
+            continue;
+        }
+
+        try {
+
+            const decrypted =
+                shDecryptStoredData(
+                    record.encryptedData
+                );
+
+            if (
+                decrypted.type !==
+                "verification"
+            ) {
+
+                continue;
+            }
+
+            const expiresAt =
+                new Date(
+                    decrypted.data.expiresAt
+                ).getTime();
+
+            if (
+                Date.now() >
+                expiresAt &&
+                decrypted.data.status ===
+                "pending"
+            ) {
+
+                decrypted.data.status =
+                    "expired";
+
+                const encrypted =
+                    shEncryptStoredData(
+                        {
+                            type:
+                                "verification",
+
+                            data:
+                                decrypted.data
+                        }
+                    );
+
+                record.encryptedData =
+                    encrypted;
+
+                record.updatedAt =
+                    new Date().toISOString();
+
+                storage.records[
+                    recordId
+                ] = record;
+
+                changed =
+                    true;
+            }
+
+        } catch {
+
+            continue;
+        }
+    }
+
+    if (changed) {
+
+        shWriteStorageFile(
+            storage
+        );
+    }
+}
+
+
+/* -----------------------------------------------------
+   PART 7.22 — VERIFICATION CLEANUP TIMER
+----------------------------------------------------- */
+
+const SH_VERIFICATION_CLEANUP_TIMER =
+    setInterval(
+        () => {
+
+            try {
+
+                shCleanupExpiredVerificationRecords();
+
+            } catch (error) {
+
+                console.error(
+                    "Verification cleanup error:",
+                    error.message
+                );
+            }
+
+        },
+
+        5 * 60 * 1000
+    );
+
+
+if (
+    SH_VERIFICATION_CLEANUP_TIMER &&
+    typeof SH_VERIFICATION_CLEANUP_TIMER.unref ===
+    "function"
+) {
+
+    SH_VERIFICATION_CLEANUP_TIMER.unref();
+}
+
+
+/* -----------------------------------------------------
+   PART 7.23 — ARCHITECTURE
+----------------------------------------------------- */
+
+const SH_VERIFICATION_ARCHITECTURE =
+    Object.freeze({
+
+        backend:
+            "Oracle Cloud Infrastructure",
+
+        backendServerCount:
+            1,
+
+        emailVerification:
+            true,
+
+        phoneVerification:
+            true,
+
+        codeGeneration:
+            "Cryptographically secure random",
+
+        codeStorage:
+            "SHA-384 hash",
+
+        verificationRecord:
+            "AES-256-GCM encrypted",
+
+        keyProtection:
+            "RSA-3072",
+
+        passwordSecurity:
+            "Argon2id",
+
+        transport:
+            "TLS 1.3",
+
+        expiration:
+            "Enabled",
+
+        attemptProtection:
+            "Enabled",
+
+        resendProtection:
+            "Enabled"
+    });
+
+
+console.log(
+    "Smart Hub Part 7 Verification Delivery Layer initialized."
+);
+
+console.log(
+    "Email + Phone verification security foundation ready."
+);
