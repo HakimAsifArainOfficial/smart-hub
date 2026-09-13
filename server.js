@@ -8099,3 +8099,479 @@ const SH_SETTINGS_SECURITY_ARCHITECTURE =
 console.log(
     "[SMART HUB] Part 9 — Settings Security & Access Control initialized."
 );
+
+// ============================================================
+// SMART HUB — ORACLE OCI BACKEND SERVER
+// PART 10 — USER PROFILE & ACCOUNT DATA SECURITY
+// ============================================================
+
+const SH_PROFILE_CONFIG = Object.freeze({
+    storageCategory: "user_profile",
+
+    encryption: "AES-256-GCM",
+    keyProtection: "RSA-3072",
+    integrity: "SHA-384",
+
+    allowedFields: [
+        "realName",
+        "secondName",
+        "username",
+        "email",
+        "phoneNumber",
+        "country",
+        "city"
+    ],
+
+    maxFieldLength: 256
+});
+
+// ------------------------------------------------------------
+// PROFILE TEXT CLEANING
+// ------------------------------------------------------------
+
+function shCleanProfileValue(value) {
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    return value
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(
+            0,
+            SH_PROFILE_CONFIG.maxFieldLength
+        );
+}
+
+// ------------------------------------------------------------
+// PROFILE DATA PREPARATION
+// ------------------------------------------------------------
+
+function shPrepareProfileData(accountId, data) {
+    const profile = {
+        type: "smart_hub_user_profile",
+        version: 1,
+        accountId,
+        updatedAt: new Date().toISOString()
+    };
+
+    for (
+        const field of
+        SH_PROFILE_CONFIG.allowedFields
+    ) {
+        if (
+            Object.prototype.hasOwnProperty.call(
+                data,
+                field
+            )
+        ) {
+            profile[field] =
+                shCleanProfileValue(data[field]);
+        }
+    }
+
+    return profile;
+}
+
+// ------------------------------------------------------------
+// FIND USER PROFILE
+// ------------------------------------------------------------
+
+function shFindUserProfile(accountId) {
+    const storage =
+        shReadStorageFile();
+
+    if (
+        !storage ||
+        !storage.records
+    ) {
+        return null;
+    }
+
+    for (
+        const recordId of
+        Object.keys(storage.records)
+    ) {
+        const record =
+            storage.records[recordId];
+
+        if (
+            !record ||
+            record.category !==
+                SH_PROFILE_CONFIG.storageCategory
+        ) {
+            continue;
+        }
+
+        try {
+            const data =
+                shDecryptStoredData(record);
+
+            if (
+                data &&
+                data.type ===
+                    "smart_hub_user_profile" &&
+                data.accountId === accountId
+            ) {
+                return {
+                    recordId,
+                    data
+                };
+            }
+        } catch (error) {
+            console.error(
+                `[PROFILE] Failed to decrypt record ${recordId}:`,
+                error.message
+            );
+        }
+    }
+
+    return null;
+}
+
+// ------------------------------------------------------------
+// SAVE USER PROFILE
+// ------------------------------------------------------------
+
+function shSaveUserProfile(
+    accountId,
+    profileData
+) {
+    const existing =
+        shFindUserProfile(accountId);
+
+    if (existing) {
+        shUpdateEncryptedRecord(
+            existing.recordId,
+            profileData
+        );
+
+        return existing.recordId;
+    }
+
+    return shCreateStoredRecord(
+        SH_PROFILE_CONFIG.storageCategory,
+        profileData
+    );
+}
+
+// ------------------------------------------------------------
+// GET USER PROFILE
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/profile",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const profile =
+            shFindUserProfile(accountId);
+
+        if (!profile) {
+            return sendJSON(res, 200, {
+                success: true,
+                profile: null
+            });
+        }
+
+        const safeProfile = {
+            realName:
+                profile.data.realName || "",
+            secondName:
+                profile.data.secondName || "",
+            username:
+                profile.data.username || "",
+            email:
+                profile.data.email || "",
+            phoneNumber:
+                profile.data.phoneNumber || "",
+            country:
+                profile.data.country || "",
+            city:
+                profile.data.city || "",
+            updatedAt:
+                profile.data.updatedAt || null
+        };
+
+        return sendJSON(res, 200, {
+            success: true,
+            profile: safeProfile
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// CREATE / UPDATE USER PROFILE
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "PUT",
+    "/api/profile",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const body =
+            await readRequestBody(req);
+
+        if (!body) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid request body."
+            });
+        }
+
+        let data;
+
+        try {
+            data = JSON.parse(body);
+        } catch (error) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid JSON."
+            });
+        }
+
+        if (
+            !data ||
+            typeof data !== "object" ||
+            Array.isArray(data)
+        ) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid profile data."
+            });
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const existing =
+            shFindUserProfile(accountId);
+
+        const profile =
+            shPrepareProfileData(
+                accountId,
+                data
+            );
+
+        /*
+         * If a profile already exists,
+         * preserve fields that were not included
+         * in this update.
+         */
+
+        if (existing) {
+            for (
+                const field of
+                SH_PROFILE_CONFIG.allowedFields
+            ) {
+                if (
+                    !Object.prototype.hasOwnProperty.call(
+                        data,
+                        field
+                    )
+                ) {
+                    if (
+                        Object.prototype.hasOwnProperty.call(
+                            existing.data,
+                            field
+                        )
+                    ) {
+                        profile[field] =
+                            existing.data[field];
+                    }
+                }
+            }
+        }
+
+        try {
+            const recordId =
+                shSaveUserProfile(
+                    accountId,
+                    profile
+                );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Profile saved securely.",
+                recordId,
+                security: {
+                    encryption:
+                        "AES-256-GCM",
+                    keyProtection:
+                        "RSA-3072",
+                    integrity:
+                        "SHA-384"
+                }
+            });
+        } catch (error) {
+            console.error(
+                "[PROFILE] Save error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "Profile could not be saved."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// DELETE USER PROFILE
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "DELETE",
+    "/api/profile",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const profile =
+            shFindUserProfile(accountId);
+
+        if (!profile) {
+            return sendJSON(res, 404, {
+                success: false,
+                error:
+                    "Profile does not exist."
+            });
+        }
+
+        try {
+            shDeleteEncryptedRecord(
+                profile.recordId
+            );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Profile data deleted."
+            });
+        } catch (error) {
+            console.error(
+                "[PROFILE] Delete error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "Profile could not be deleted."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// PROFILE SECURITY STATUS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/profile/security-status",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const profile =
+            shFindUserProfile(
+                auth.session.accountId
+            );
+
+        return sendJSON(res, 200, {
+            success: true,
+
+            profileExists:
+                !!profile,
+
+            storage: {
+                backend:
+                    "Oracle Cloud Infrastructure",
+                serverCount: 1,
+                encryption:
+                    "AES-256-GCM",
+                keyProtection:
+                    "RSA-3072",
+                integrity:
+                    "SHA-384"
+            }
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// PART 10 ARCHITECTURE
+// ------------------------------------------------------------
+
+const SH_PROFILE_ARCHITECTURE =
+    Object.freeze({
+        backendProvider:
+            "Oracle Cloud Infrastructure",
+
+        backendServerCount: 1,
+
+        profileData: {
+            encryptedAtRest:
+                "AES-256-GCM",
+            keyProtection:
+                "RSA-3072",
+            integrity:
+                "SHA-384",
+            accountIsolation:
+                true,
+            authenticatedAccess:
+                true
+        },
+
+        searchEnginesExternal:
+            true,
+
+        supabase: false,
+        cloudflare: false
+    });
+
+console.log(
+    "[SMART HUB] Part 10 — User Profile & Account Data Security initialized."
+);
