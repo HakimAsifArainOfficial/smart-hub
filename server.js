@@ -10048,3 +10048,632 @@ const SH_SEARCH_DATA_ARCHITECTURE =
 console.log(
     "[SMART HUB] Part 12 — Search History & Saved Data Security initialized."
 );
+
+// ============================================================
+// SMART HUB ORACLE BACKEND — PART 13
+// CENTRAL APP COOKIE & PRIVACY DATA STORAGE
+//
+// Single Backend Server: Oracle Cloud Infrastructure (OCI)
+//
+// Smart Hub App-Owned Data:
+//   Cookies / Preferences / Privacy State
+//   -> Oracle OCI
+//   -> AES-256-GCM encryption at rest
+//   -> SHA-384 integrity
+//   -> RSA-3072 key protection
+//
+// External Services:
+//   DuckDuckGo / Mojeek / Swisscows / MetaGer / Yahoo
+//   Startpage / Yandex
+//   -> remain external services
+// ============================================================
+
+
+const SH_APP_COOKIE_CONFIG = Object.freeze({
+
+  storageCategory: "app_cookies",
+
+  encryption: "AES-256-GCM",
+  integrity: "SHA-384",
+  keyProtection: "RSA-3072",
+
+  maxItems: 500,
+
+  maxNameLength: 256,
+  maxValueLength: 8192,
+  maxDomainLength: 512,
+  maxPathLength: 512,
+
+  backendProvider: "Oracle Cloud Infrastructure",
+  backendServerCount: 1
+
+});
+
+
+// ------------------------------------------------------------
+// 13.1 — Validate One Cookie / Privacy Item
+// ------------------------------------------------------------
+
+function shValidateAppCookieItem(item) {
+
+  if (!item || typeof item !== "object") {
+    throw new Error("Invalid cookie/privacy item");
+  }
+
+  const name = String(item.name || "").trim();
+
+  const value = String(
+    item.value === undefined || item.value === null
+      ? ""
+      : item.value
+  );
+
+  if (!name) {
+    throw new Error("Cookie/privacy item name is required");
+  }
+
+  if (name.length > SH_APP_COOKIE_CONFIG.maxNameLength) {
+    throw new Error("Cookie/privacy item name is too long");
+  }
+
+  if (value.length > SH_APP_COOKIE_CONFIG.maxValueLength) {
+    throw new Error("Cookie/privacy item value is too long");
+  }
+
+  const domain = item.domain
+    ? String(item.domain).trim()
+    : "";
+
+  if (domain.length > SH_APP_COOKIE_CONFIG.maxDomainLength) {
+    throw new Error("Cookie domain is too long");
+  }
+
+  const pathValue = item.path
+    ? String(item.path).trim()
+    : "/";
+
+  if (pathValue.length > SH_APP_COOKIE_CONFIG.maxPathLength) {
+    throw new Error("Cookie path is too long");
+  }
+
+  const sameSiteValues = [
+    "Strict",
+    "Lax",
+    "None"
+  ];
+
+  const sameSite = sameSiteValues.includes(item.sameSite)
+    ? item.sameSite
+    : "Lax";
+
+  return {
+
+    name,
+
+    value,
+
+    domain,
+
+    path: pathValue,
+
+    secure: Boolean(item.secure),
+
+    httpOnly: Boolean(item.httpOnly),
+
+    sameSite,
+
+    expiresAt: item.expiresAt
+      ? String(item.expiresAt)
+      : null,
+
+    updatedAt: new Date().toISOString()
+
+  };
+
+}
+
+
+// ------------------------------------------------------------
+// 13.2 — Prepare Central App Cookie Data
+// ------------------------------------------------------------
+
+function shPrepareAppCookieData(accountId, items) {
+
+  if (!accountId) {
+    throw new Error("Authentication required");
+  }
+
+  if (!Array.isArray(items)) {
+    throw new Error("Cookie/privacy data must be an array");
+  }
+
+  if (items.length > SH_APP_COOKIE_CONFIG.maxItems) {
+    throw new Error("Too many cookie/privacy items");
+  }
+
+  return {
+
+    type: "smart_hub_app_cookie_data",
+
+    accountId: String(accountId),
+
+    items: items.map(
+      shValidateAppCookieItem
+    ),
+
+    updatedAt: new Date().toISOString()
+
+  };
+
+}
+
+
+// ------------------------------------------------------------
+// 13.3 — Find Account's Existing Cookie Data
+// ------------------------------------------------------------
+
+async function shFindAppCookieRecord(accountId) {
+
+  const storage = await shReadStorageFile();
+
+  const records = Object.values(
+    storage.records || {}
+  );
+
+  for (const record of records) {
+
+    try {
+
+      const data = shDecryptStoredData(record);
+
+      if (
+        data &&
+        data.type === "smart_hub_app_cookie_data" &&
+        data.accountId === String(accountId)
+      ) {
+
+        return {
+          recordId: record.id,
+          data
+        };
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "[APP-COOKIE] Decryption error:",
+        error.message
+      );
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+// ------------------------------------------------------------
+// 13.4 — Save / Update Central Cookie Data
+// ------------------------------------------------------------
+
+async function shSaveAppCookieData(
+  accountId,
+  items
+) {
+
+  const preparedData =
+    shPrepareAppCookieData(
+      accountId,
+      items
+    );
+
+  const existing =
+    await shFindAppCookieRecord(
+      accountId
+    );
+
+  if (existing) {
+
+    return await shUpdateEncryptedRecord(
+      existing.recordId,
+      preparedData
+    );
+
+  }
+
+  return await shCreateStoredRecord(
+    SH_APP_COOKIE_CONFIG.storageCategory,
+    preparedData
+  );
+
+}
+
+
+// ------------------------------------------------------------
+// 13.5 — GET Central Cookie / Privacy Data
+// ------------------------------------------------------------
+
+shRegisterRoute(
+  "GET",
+  "/api/privacy/app-cookies",
+  async (req, res) => {
+
+    try {
+
+      const auth =
+        await shRequireAuthentication(req);
+
+      if (!auth.authenticated) {
+
+        return sendJSON(
+          res,
+          401,
+          {
+            success: false,
+            error: "Authentication required"
+          }
+        );
+
+      }
+
+      const existing =
+        await shFindAppCookieRecord(
+          auth.accountId
+        );
+
+      return sendJSON(
+        res,
+        200,
+        {
+
+          success: true,
+
+          items: existing
+            ? existing.data.items
+            : [],
+
+          storage: {
+
+            location:
+              "Oracle Cloud Infrastructure",
+
+            backendServerCount: 1,
+
+            encryptedAtRest: true,
+
+            encryption:
+              "AES-256-GCM",
+
+            integrity:
+              "SHA-384",
+
+            keyProtection:
+              "RSA-3072"
+
+          }
+
+        }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "[APP-COOKIE] GET error:",
+        error.message
+      );
+
+      return sendJSON(
+        res,
+        500,
+        {
+          success: false,
+          error:
+            "Unable to read cookie/privacy data"
+        }
+      );
+
+    }
+
+  }
+);
+
+
+// ------------------------------------------------------------
+// 13.6 — PUT Central Cookie / Privacy Data
+// ------------------------------------------------------------
+
+shRegisterRoute(
+  "PUT",
+  "/api/privacy/app-cookies",
+  async (req, res) => {
+
+    try {
+
+      const auth =
+        await shRequireAuthentication(req);
+
+      if (!auth.authenticated) {
+
+        return sendJSON(
+          res,
+          401,
+          {
+            success: false,
+            error: "Authentication required"
+          }
+        );
+
+      }
+
+      const body =
+        await readRequestBody(req);
+
+      const parsed =
+        typeof body === "string"
+          ? JSON.parse(body)
+          : body;
+
+      const saved =
+        await shSaveAppCookieData(
+          auth.accountId,
+          parsed.items
+        );
+
+      return sendJSON(
+        res,
+        200,
+        {
+
+          success: true,
+
+          message:
+            "Cookie/privacy data saved securely in Oracle OCI",
+
+          recordId:
+            saved.id ||
+            saved.recordId ||
+            null,
+
+          encryptedAtRest: true,
+
+          encryption:
+            "AES-256-GCM",
+
+          integrity:
+            "SHA-384",
+
+          keyProtection:
+            "RSA-3072"
+
+        }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "[APP-COOKIE] PUT error:",
+        error.message
+      );
+
+      return sendJSON(
+        res,
+        400,
+        {
+          success: false,
+          error:
+            error.message ||
+            "Unable to save cookie/privacy data"
+        }
+      );
+
+    }
+
+  }
+);
+
+
+// ------------------------------------------------------------
+// 13.7 — DELETE Central Cookie / Privacy Data
+// ------------------------------------------------------------
+
+shRegisterRoute(
+  "DELETE",
+  "/api/privacy/app-cookies",
+  async (req, res) => {
+
+    try {
+
+      const auth =
+        await shRequireAuthentication(req);
+
+      if (!auth.authenticated) {
+
+        return sendJSON(
+          res,
+          401,
+          {
+            success: false,
+            error: "Authentication required"
+          }
+        );
+
+      }
+
+      const existing =
+        await shFindAppCookieRecord(
+          auth.accountId
+        );
+
+      if (!existing) {
+
+        return sendJSON(
+          res,
+          200,
+          {
+            success: true,
+            message:
+              "No cookie/privacy data found"
+          }
+        );
+
+      }
+
+      await shDeleteEncryptedRecord(
+        existing.recordId
+      );
+
+      return sendJSON(
+        res,
+        200,
+        {
+          success: true,
+          message:
+            "Cookie/privacy data deleted from Oracle OCI"
+        }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "[APP-COOKIE] DELETE error:",
+        error.message
+      );
+
+      return sendJSON(
+        res,
+        500,
+        {
+          success: false,
+          error:
+            "Unable to delete cookie/privacy data"
+        }
+      );
+
+    }
+
+  }
+);
+
+
+// ------------------------------------------------------------
+// 13.8 — Cookie / Privacy Security Status
+// ------------------------------------------------------------
+
+shRegisterRoute(
+  "GET",
+  "/api/privacy/security-status",
+  async (req, res) => {
+
+    return sendJSON(
+      res,
+      200,
+      {
+
+        success: true,
+
+        backend: {
+
+          provider:
+            "Oracle Cloud Infrastructure",
+
+          serverCount: 1
+
+        },
+
+        storage: {
+
+          category:
+            "app_cookies",
+
+          location:
+            "Oracle OCI",
+
+          encryptionAtRest:
+            "AES-256-GCM",
+
+          integrity:
+            "SHA-384",
+
+          keyProtection:
+            "RSA-3072"
+
+        },
+
+        transport: {
+
+          target:
+            "TLS 1.3"
+
+        },
+
+        externalServices: {
+
+          remainExternal:
+            true,
+
+          ownServerData:
+            "Remains on the external service's infrastructure"
+
+        }
+
+      }
+
+    );
+
+  }
+);
+
+
+// ------------------------------------------------------------
+// 13.9 — Architecture Declaration
+// ------------------------------------------------------------
+
+const SH_APP_COOKIE_ARCHITECTURE =
+  Object.freeze({
+
+    backendProvider:
+      "Oracle Cloud Infrastructure",
+
+    backendServerCount:
+      1,
+
+    storage:
+
+      "Oracle OCI encrypted storage",
+
+    appOwnedCookieData:
+      "Oracle OCI",
+
+    appOwnedPrivacyData:
+      "Oracle OCI",
+
+    encryptionAtRest:
+      "AES-256-GCM",
+
+    integrity:
+      "SHA-384",
+
+    keyProtection:
+      "RSA-3072",
+
+    transportTarget:
+      "TLS 1.3",
+
+    externalServices:
+      "External service remains external",
+
+    supabase:
+      false,
+
+    cloudflare:
+      false
+
+  });
+
+
+console.log(
+  "[PART 13] Central App Cookie & Privacy Storage initialized."
+);
