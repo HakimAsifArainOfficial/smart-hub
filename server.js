@@ -7096,3 +7096,390 @@ console.log(
 console.log(
     "Email + Phone verification security foundation ready."
 );
+
+// ============================================================
+// SMART HUB — ORACLE OCI BACKEND SERVER
+// PART 8 — AUTHENTICATION SESSION & AUTHORIZATION SECURITY
+// ============================================================
+
+const SH_SESSION_CONFIG = Object.freeze({
+    sessionLifetimeMs: 24 * 60 * 60 * 1000,
+    tokenHashAlgorithm: "sha384",
+    tokenBytes: 32,
+    maxActiveSessionsPerAccount: 5,
+    storageCategory: "general"
+});
+
+const SH_SESSION_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+// ------------------------------------------------------------
+// SESSION TOKEN HASH
+// ------------------------------------------------------------
+
+function shHashSessionToken(token) {
+    if (typeof token !== "string" || token.length < 20) {
+        return null;
+    }
+
+    return crypto
+        .createHash("sha384")
+        .update(token, "utf8")
+        .digest("hex");
+}
+
+// ------------------------------------------------------------
+// AUTHORIZATION HEADER
+// ------------------------------------------------------------
+
+function shGetBearerToken(req) {
+    const header = req.headers.authorization;
+
+    if (typeof header !== "string") {
+        return null;
+    }
+
+    if (!header.startsWith("Bearer ")) {
+        return null;
+    }
+
+    const token = header.slice(7).trim();
+
+    if (!token || token.length < 20) {
+        return null;
+    }
+
+    return token;
+}
+
+// ------------------------------------------------------------
+// SESSION RECORD SEARCH
+// ------------------------------------------------------------
+
+async function shFindSessionByToken(token) {
+    const tokenHash = shHashSessionToken(token);
+
+    if (!tokenHash) {
+        return null;
+    }
+
+    const storage = shReadStorageFile();
+
+    if (!storage || !storage.records) {
+        return null;
+    }
+
+    for (const recordId of Object.keys(storage.records)) {
+        const record = storage.records[recordId];
+
+        if (!record || record.category !== "general") {
+            continue;
+        }
+
+        try {
+            const data = shDecryptStoredData(record);
+
+            if (!data || data.type !== "smart_hub_session") {
+                continue;
+            }
+
+            if (data.tokenHash !== tokenHash) {
+                continue;
+            }
+
+            return {
+                recordId,
+                session: data
+            };
+        } catch (error) {
+            console.error(
+                `[SESSION] Failed to decrypt session ${recordId}:`,
+                error.message
+            );
+        }
+    }
+
+    return null;
+}
+
+// ------------------------------------------------------------
+// SESSION VALIDATION
+// ------------------------------------------------------------
+
+async function shValidateSession(req) {
+    const token = shGetBearerToken(req);
+
+    if (!token) {
+        return {
+            valid: false,
+            reason: "missing_session"
+        };
+    }
+
+    const result = await shFindSessionByToken(token);
+
+    if (!result) {
+        return {
+            valid: false,
+            reason: "invalid_session"
+        };
+    }
+
+    const session = result.session;
+
+    if (!session.expiresAt) {
+        return {
+            valid: false,
+            reason: "invalid_expiration"
+        };
+    }
+
+    const expiresAt = Date.parse(session.expiresAt);
+
+    if (!Number.isFinite(expiresAt)) {
+        return {
+            valid: false,
+            reason: "invalid_expiration"
+        };
+    }
+
+    if (Date.now() >= expiresAt) {
+        try {
+            shDeleteEncryptedRecord(result.recordId);
+        } catch (error) {
+            console.error(
+                "[SESSION] Failed to remove expired session:",
+                error.message
+            );
+        }
+
+        return {
+            valid: false,
+            reason: "session_expired"
+        };
+    }
+
+    return {
+        valid: true,
+        recordId: result.recordId,
+        session,
+        token
+    };
+}
+
+// ------------------------------------------------------------
+// SESSION REVOCATION
+// ------------------------------------------------------------
+
+async function shRevokeSession(token) {
+    const result = await shFindSessionByToken(token);
+
+    if (!result) {
+        return false;
+    }
+
+    try {
+        shDeleteEncryptedRecord(result.recordId);
+        return true;
+    } catch (error) {
+        console.error(
+            "[SESSION] Failed to revoke session:",
+            error.message
+        );
+
+        return false;
+    }
+}
+
+// ------------------------------------------------------------
+// LOGOUT
+// ------------------------------------------------------------
+
+shRegisterRoute("POST", "/api/auth/logout", async (req, res) => {
+    const auth = await shValidateSession(req);
+
+    if (!auth.valid) {
+        return sendJSON(res, 401, {
+            success: false,
+            error: "Unauthorized",
+            reason: auth.reason
+        });
+    }
+
+    const revoked = await shRevokeSession(auth.token);
+
+    if (!revoked) {
+        return sendJSON(res, 500, {
+            success: false,
+            error: "Session could not be revoked"
+        });
+    }
+
+    return sendJSON(res, 200, {
+        success: true,
+        message: "Session logged out successfully"
+    });
+});
+
+// ------------------------------------------------------------
+// CURRENT USER / SESSION
+// ------------------------------------------------------------
+
+shRegisterRoute("GET", "/api/auth/me", async (req, res) => {
+    const auth = await shValidateSession(req);
+
+    if (!auth.valid) {
+        return sendJSON(res, 401, {
+            success: false,
+            error: "Unauthorized",
+            reason: auth.reason
+        });
+    }
+
+    return sendJSON(res, 200, {
+        success: true,
+        accountId: auth.session.accountId,
+        sessionId: auth.session.sessionId,
+        expiresAt: auth.session.expiresAt
+    });
+});
+
+// ------------------------------------------------------------
+// PROTECTED ROUTE HELPER
+// ------------------------------------------------------------
+
+async function shRequireAuthentication(req, res) {
+    const auth = await shValidateSession(req);
+
+    if (!auth.valid) {
+        sendJSON(res, 401, {
+            success: false,
+            error: "Authentication required",
+            reason: auth.reason
+        });
+
+        return null;
+    }
+
+    return auth;
+}
+
+// ------------------------------------------------------------
+// SESSION CLEANUP
+// ------------------------------------------------------------
+
+async function shCleanupExpiredSessions() {
+    const storage = shReadStorageFile();
+
+    if (!storage || !storage.records) {
+        return;
+    }
+
+    let removed = 0;
+
+    for (const recordId of Object.keys(storage.records)) {
+        const record = storage.records[recordId];
+
+        if (!record || record.category !== "general") {
+            continue;
+        }
+
+        try {
+            const data = shDecryptStoredData(record);
+
+            if (!data || data.type !== "smart_hub_session") {
+                continue;
+            }
+
+            const expiresAt = Date.parse(data.expiresAt);
+
+            if (
+                Number.isFinite(expiresAt) &&
+                Date.now() >= expiresAt
+            ) {
+                shDeleteEncryptedRecord(recordId);
+                removed++;
+            }
+        } catch (error) {
+            console.error(
+                `[SESSION CLEANUP] ${recordId}:`,
+                error.message
+            );
+        }
+    }
+
+    if (removed > 0) {
+        console.log(
+            `[SESSION CLEANUP] Removed ${removed} expired session(s).`
+        );
+    }
+}
+
+const SH_SESSION_CLEANUP_TIMER = setInterval(
+    shCleanupExpiredSessions,
+    SH_SESSION_CLEANUP_INTERVAL_MS
+);
+
+if (typeof SH_SESSION_CLEANUP_TIMER.unref === "function") {
+    SH_SESSION_CLEANUP_TIMER.unref();
+}
+
+// ------------------------------------------------------------
+// SESSION SECURITY STATUS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/backend/session-security-status",
+    async (req, res) => {
+        return sendJSON(res, 200, {
+            success: true,
+            backend: "Oracle Cloud Infrastructure",
+            serverCount: 1,
+            sessionSecurity: {
+                tokenBytes: SH_SESSION_CONFIG.tokenBytes,
+                tokenHash: SH_SESSION_CONFIG.tokenHashAlgorithm,
+                sessionLifetimeHours: 24,
+                maxActiveSessionsPerAccount:
+                    SH_SESSION_CONFIG.maxActiveSessionsPerAccount,
+                encryptedStorage: "AES-256-GCM",
+                keyProtection: "RSA-3072",
+                integrity: "SHA-384",
+                passwordProtection: "Argon2id"
+            }
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// PART 8 ARCHITECTURE
+// ------------------------------------------------------------
+
+const SH_SESSION_ARCHITECTURE = Object.freeze({
+    backendProvider: "Oracle Cloud Infrastructure",
+    backendServerCount: 1,
+
+    authentication: {
+        passwordHashing: "Argon2id",
+        sessionToken: "Random 256-bit token",
+        sessionTokenHash: "SHA-384",
+        sessionStorage: "AES-256-GCM",
+        keyProtection: "RSA-3072",
+        integrity: "SHA-384"
+    },
+
+    session: {
+        lifetime: "24 hours",
+        logout: true,
+        expirationCleanup: true,
+        protectedRoutes: true
+    },
+
+    searchEnginesExternal: true,
+
+    supabase: false,
+    cloudflare: false
+});
+
+console.log(
+    "[SMART HUB] Part 8 — Authentication Session & Authorization Security initialized."
+);
