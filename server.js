@@ -8575,3 +8575,624 @@ const SH_PROFILE_ARCHITECTURE =
 console.log(
     "[SMART HUB] Part 10 — User Profile & Account Data Security initialized."
 );
+
+// ============================================================
+// SMART HUB — ORACLE OCI BACKEND SERVER
+// PART 11 — APP SETTINGS & PREFERENCES SECURITY
+// ============================================================
+
+const SH_APP_SETTINGS_CONFIG = Object.freeze({
+    storageCategory: "app_preferences",
+
+    encryption: "AES-256-GCM",
+    keyProtection: "RSA-3072",
+    integrity: "SHA-384",
+
+    maxSettingsSize: 1024 * 1024
+});
+
+// ------------------------------------------------------------
+// DEFAULT APP SETTINGS
+// ------------------------------------------------------------
+
+function shGetDefaultAppSettings() {
+    return {
+        appearance: "system",
+        interfaceSize: "normal",
+
+        dataSaver: false,
+        batterySaver: false,
+
+        searchHistory: true,
+        browsingData: true,
+
+        doNotTrack: true,
+        cookiePreference: "standard",
+
+        notifications: true,
+
+        language: "English",
+
+        searchEngine: "DuckDuckGo",
+
+        version: "1.0"
+    };
+}
+
+// ------------------------------------------------------------
+// FIND USER SETTINGS
+// ------------------------------------------------------------
+
+function shFindAppSettings(accountId) {
+    const storage =
+        shReadStorageFile();
+
+    if (
+        !storage ||
+        !storage.records
+    ) {
+        return null;
+    }
+
+    for (
+        const recordId of
+        Object.keys(storage.records)
+    ) {
+        const record =
+            storage.records[recordId];
+
+        if (
+            !record ||
+            record.category !==
+                SH_APP_SETTINGS_CONFIG.storageCategory
+        ) {
+            continue;
+        }
+
+        try {
+            const data =
+                shDecryptStoredData(record);
+
+            if (
+                data &&
+                data.type ===
+                    "smart_hub_app_settings" &&
+                data.accountId === accountId
+            ) {
+                return {
+                    recordId,
+                    data
+                };
+            }
+        } catch (error) {
+            console.error(
+                `[APP SETTINGS] Failed to decrypt record ${recordId}:`,
+                error.message
+            );
+        }
+    }
+
+    return null;
+}
+
+// ------------------------------------------------------------
+// SETTINGS DATA VALIDATION
+// ------------------------------------------------------------
+
+function shPrepareAppSettings(
+    accountId,
+    incoming
+) {
+    const defaults =
+        shGetDefaultAppSettings();
+
+    const settings = {
+        type: "smart_hub_app_settings",
+        version: 1,
+        accountId,
+
+        appearance:
+            typeof incoming.appearance === "string"
+                ? incoming.appearance.slice(0, 32)
+                : defaults.appearance,
+
+        interfaceSize:
+            typeof incoming.interfaceSize === "string"
+                ? incoming.interfaceSize.slice(0, 32)
+                : defaults.interfaceSize,
+
+        dataSaver:
+            typeof incoming.dataSaver === "boolean"
+                ? incoming.dataSaver
+                : defaults.dataSaver,
+
+        batterySaver:
+            typeof incoming.batterySaver === "boolean"
+                ? incoming.batterySaver
+                : defaults.batterySaver,
+
+        searchHistory:
+            typeof incoming.searchHistory === "boolean"
+                ? incoming.searchHistory
+                : defaults.searchHistory,
+
+        browsingData:
+            typeof incoming.browsingData === "boolean"
+                ? incoming.browsingData
+                : defaults.browsingData,
+
+        doNotTrack:
+            typeof incoming.doNotTrack === "boolean"
+                ? incoming.doNotTrack
+                : defaults.doNotTrack,
+
+        cookiePreference:
+            typeof incoming.cookiePreference === "string"
+                ? incoming.cookiePreference.slice(0, 32)
+                : defaults.cookiePreference,
+
+        notifications:
+            typeof incoming.notifications === "boolean"
+                ? incoming.notifications
+                : defaults.notifications,
+
+        language:
+            typeof incoming.language === "string"
+                ? incoming.language.slice(0, 32)
+                : defaults.language,
+
+        searchEngine:
+            typeof incoming.searchEngine === "string"
+                ? incoming.searchEngine.slice(0, 64)
+                : defaults.searchEngine,
+
+        updatedAt:
+            new Date().toISOString()
+    };
+
+    const size =
+        Buffer.byteLength(
+            JSON.stringify(settings),
+            "utf8"
+        );
+
+    if (
+        size >
+        SH_APP_SETTINGS_CONFIG.maxSettingsSize
+    ) {
+        throw new Error(
+            "Settings data is too large."
+        );
+    }
+
+    return settings;
+}
+
+// ------------------------------------------------------------
+// SAVE APP SETTINGS
+// ------------------------------------------------------------
+
+function shSaveAppSettings(
+    accountId,
+    settings
+) {
+    const existing =
+        shFindAppSettings(accountId);
+
+    if (existing) {
+        shUpdateEncryptedRecord(
+            existing.recordId,
+            settings
+        );
+
+        return existing.recordId;
+    }
+
+    return shCreateStoredRecord(
+        SH_APP_SETTINGS_CONFIG.storageCategory,
+        settings
+    );
+}
+
+// ------------------------------------------------------------
+// GET APP SETTINGS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/settings",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const existing =
+            shFindAppSettings(accountId);
+
+        if (!existing) {
+            return sendJSON(res, 200, {
+                success: true,
+                settings:
+                    shGetDefaultAppSettings(),
+                stored: false
+            });
+        }
+
+        const settings = {
+            appearance:
+                existing.data.appearance,
+
+            interfaceSize:
+                existing.data.interfaceSize,
+
+            dataSaver:
+                existing.data.dataSaver,
+
+            batterySaver:
+                existing.data.batterySaver,
+
+            searchHistory:
+                existing.data.searchHistory,
+
+            browsingData:
+                existing.data.browsingData,
+
+            doNotTrack:
+                existing.data.doNotTrack,
+
+            cookiePreference:
+                existing.data.cookiePreference,
+
+            notifications:
+                existing.data.notifications,
+
+            language:
+                existing.data.language,
+
+            searchEngine:
+                existing.data.searchEngine,
+
+            version:
+                existing.data.version,
+
+            updatedAt:
+                existing.data.updatedAt
+        };
+
+        return sendJSON(res, 200, {
+            success: true,
+            settings,
+            stored: true
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// CREATE / UPDATE APP SETTINGS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "PUT",
+    "/api/settings",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const body =
+            await readRequestBody(req);
+
+        if (!body) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid request body."
+            });
+        }
+
+        let incoming;
+
+        try {
+            incoming = JSON.parse(body);
+        } catch (error) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid JSON."
+            });
+        }
+
+        if (
+            !incoming ||
+            typeof incoming !== "object" ||
+            Array.isArray(incoming)
+        ) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid settings data."
+            });
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const existing =
+            shFindAppSettings(accountId);
+
+        /*
+         * Start from existing settings so that
+         * partial updates do not erase values.
+         */
+
+        const current =
+            existing
+                ? existing.data
+                : shGetDefaultAppSettings();
+
+        const merged = {
+            ...current,
+            ...incoming
+        };
+
+        try {
+            const settings =
+                shPrepareAppSettings(
+                    accountId,
+                    merged
+                );
+
+            const recordId =
+                shSaveAppSettings(
+                    accountId,
+                    settings
+                );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "App settings saved securely.",
+                recordId,
+
+                security: {
+                    encryption:
+                        "AES-256-GCM",
+                    keyProtection:
+                        "RSA-3072",
+                    integrity:
+                        "SHA-384"
+                }
+            });
+        } catch (error) {
+            console.error(
+                "[APP SETTINGS] Save error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "App settings could not be saved."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// RESET APP SETTINGS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "POST",
+    "/api/settings/reset",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const existing =
+            shFindAppSettings(accountId);
+
+        const defaults =
+            shPrepareAppSettings(
+                accountId,
+                shGetDefaultAppSettings()
+            );
+
+        try {
+            if (existing) {
+                shUpdateEncryptedRecord(
+                    existing.recordId,
+                    defaults
+                );
+            } else {
+                shCreateStoredRecord(
+                    SH_APP_SETTINGS_CONFIG
+                        .storageCategory,
+                    defaults
+                );
+            }
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "App settings reset successfully."
+            });
+        } catch (error) {
+            console.error(
+                "[APP SETTINGS] Reset error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "App settings could not be reset."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// DELETE APP SETTINGS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "DELETE",
+    "/api/settings",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const existing =
+            shFindAppSettings(accountId);
+
+        if (!existing) {
+            return sendJSON(res, 404, {
+                success: false,
+                error:
+                    "Stored settings do not exist."
+            });
+        }
+
+        try {
+            shDeleteEncryptedRecord(
+                existing.recordId
+            );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Stored app settings deleted."
+            });
+        } catch (error) {
+            console.error(
+                "[APP SETTINGS] Delete error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "App settings could not be deleted."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// SETTINGS SECURITY INFORMATION
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/settings/security",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        return sendJSON(res, 200, {
+            success: true,
+
+            backend:
+                "Oracle Cloud Infrastructure",
+
+            serverCount: 1,
+
+            storage: {
+                encryption:
+                    "AES-256-GCM",
+                keyProtection:
+                    "RSA-3072",
+                integrity:
+                    "SHA-384"
+            },
+
+            passwordAndCodeProtection:
+                "Argon2id"
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// PART 11 ARCHITECTURE
+// ------------------------------------------------------------
+
+const SH_APP_SETTINGS_ARCHITECTURE =
+    Object.freeze({
+        backendProvider:
+            "Oracle Cloud Infrastructure",
+
+        backendServerCount: 1,
+
+        settings: {
+            encryptedAtRest:
+                "AES-256-GCM",
+
+            keyProtection:
+                "RSA-3072",
+
+            integrity:
+                "SHA-384",
+
+            authenticatedAccess:
+                true,
+
+            resetSupported:
+                true,
+
+            deleteSupported:
+                true
+        },
+
+        defaultSearchEngine:
+            "DuckDuckGo",
+
+        searchEnginesExternal:
+            true,
+
+        supabase: false,
+        cloudflare: false
+    });
+
+console.log(
+    "[SMART HUB] Part 11 — App Settings & Preferences Security initialized."
+);
