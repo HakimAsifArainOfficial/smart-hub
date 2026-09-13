@@ -7483,3 +7483,619 @@ const SH_SESSION_ARCHITECTURE = Object.freeze({
 console.log(
     "[SMART HUB] Part 8 — Authentication Session & Authorization Security initialized."
 );
+
+// ============================================================
+// SMART HUB — ORACLE OCI BACKEND SERVER
+// PART 9 — SETTINGS SECURITY & ACCESS CONTROL
+// ============================================================
+
+const SH_SETTINGS_SECURITY_CONFIG = Object.freeze({
+    codeMinLength: 6,
+    codeMaxLength: 256,
+    hashAlgorithm: "Argon2id",
+    storageEncryption: "AES-256-GCM",
+    keyProtection: "RSA-3072",
+    integrity: "SHA-384",
+    maxAttempts: 5,
+    lockoutMinutes: 15,
+    storageCategory: "app_preferences"
+});
+
+const SH_SETTINGS_SECURITY_ATTEMPTS = new Map();
+
+// ------------------------------------------------------------
+// SETTINGS SECURITY CODE VALIDATION
+// ------------------------------------------------------------
+
+function shValidateSettingsSecurityCode(code) {
+    if (typeof code !== "string") {
+        return {
+            valid: false,
+            error: "Security code must be a string."
+        };
+    }
+
+    if (
+        code.length <
+        SH_SETTINGS_SECURITY_CONFIG.codeMinLength
+    ) {
+        return {
+            valid: false,
+            error: "Security code is too short."
+        };
+    }
+
+    if (
+        code.length >
+        SH_SETTINGS_SECURITY_CONFIG.codeMaxLength
+    ) {
+        return {
+            valid: false,
+            error: "Security code is too long."
+        };
+    }
+
+    return {
+        valid: true
+    };
+}
+
+// ------------------------------------------------------------
+// SETTINGS SECURITY CODE HASH
+// ------------------------------------------------------------
+
+async function shHashSettingsSecurityCode(code) {
+    const validation =
+        shValidateSettingsSecurityCode(code);
+
+    if (!validation.valid) {
+        throw new Error(validation.error);
+    }
+
+    if (typeof argon2 === "undefined") {
+        throw new Error(
+            "Argon2id module is not available."
+        );
+    }
+
+    return argon2.hash({
+        pass: code,
+        type: argon2.argon2id,
+        memoryCost: 65536,
+        timeCost: 3,
+        parallelism: 1,
+        hashLength: 32
+    });
+}
+
+// ------------------------------------------------------------
+// SETTINGS SECURITY CODE VERIFY
+// ------------------------------------------------------------
+
+async function shVerifySettingsSecurityCode(
+    storedHash,
+    code
+) {
+    if (
+        typeof storedHash !== "string" ||
+        typeof code !== "string"
+    ) {
+        return false;
+    }
+
+    if (typeof argon2 === "undefined") {
+        return false;
+    }
+
+    try {
+        return await argon2.verify(
+            storedHash,
+            code
+        );
+    } catch (error) {
+        console.error(
+            "[SETTINGS SECURITY] Code verification error:",
+            error.message
+        );
+
+        return false;
+    }
+}
+
+// ------------------------------------------------------------
+// SETTINGS SECURITY ATTEMPT CONTROL
+// ------------------------------------------------------------
+
+function shGetSettingsAttemptKey(accountId) {
+    return `settings:${accountId}`;
+}
+
+function shCheckSettingsSecurityAttempts(accountId) {
+    const key =
+        shGetSettingsAttemptKey(accountId);
+
+    const entry =
+        SH_SETTINGS_SECURITY_ATTEMPTS.get(key);
+
+    if (!entry) {
+        return {
+            allowed: true,
+            remaining:
+                SH_SETTINGS_SECURITY_CONFIG.maxAttempts
+        };
+    }
+
+    const now = Date.now();
+
+    if (now >= entry.lockedUntil) {
+        SH_SETTINGS_SECURITY_ATTEMPTS.delete(key);
+
+        return {
+            allowed: true,
+            remaining:
+                SH_SETTINGS_SECURITY_CONFIG.maxAttempts
+        };
+    }
+
+    return {
+        allowed: false,
+        remaining: 0,
+        lockedUntil: new Date(
+            entry.lockedUntil
+        ).toISOString()
+    };
+}
+
+function shRegisterSettingsSecurityFailure(accountId) {
+    const key =
+        shGetSettingsAttemptKey(accountId);
+
+    const now = Date.now();
+
+    let entry =
+        SH_SETTINGS_SECURITY_ATTEMPTS.get(key);
+
+    if (!entry || now >= entry.lockedUntil) {
+        entry = {
+            attempts: 0,
+            lockedUntil: now
+        };
+    }
+
+    entry.attempts++;
+
+    if (
+        entry.attempts >=
+        SH_SETTINGS_SECURITY_CONFIG.maxAttempts
+    ) {
+        entry.lockedUntil =
+            now +
+            SH_SETTINGS_SECURITY_CONFIG.lockoutMinutes *
+                60 *
+                1000;
+    }
+
+    SH_SETTINGS_SECURITY_ATTEMPTS.set(
+        key,
+        entry
+    );
+
+    return entry;
+}
+
+function shClearSettingsSecurityFailures(accountId) {
+    SH_SETTINGS_SECURITY_ATTEMPTS.delete(
+        shGetSettingsAttemptKey(accountId)
+    );
+}
+
+// ------------------------------------------------------------
+// SETTINGS SECURITY RECORD
+// ------------------------------------------------------------
+
+async function shCreateSettingsSecurityRecord(
+    accountId,
+    code
+) {
+    if (!accountId) {
+        throw new Error(
+            "Account ID is required."
+        );
+    }
+
+    const hash =
+        await shHashSettingsSecurityCode(code);
+
+    return {
+        type: "smart_hub_settings_security",
+        version: 1,
+        accountId,
+        codeHash: hash,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+}
+
+// ------------------------------------------------------------
+// FIND SETTINGS SECURITY RECORD
+// ------------------------------------------------------------
+
+function shFindSettingsSecurityRecord(accountId) {
+    const storage =
+        shReadStorageFile();
+
+    if (
+        !storage ||
+        !storage.records
+    ) {
+        return null;
+    }
+
+    for (
+        const recordId of
+        Object.keys(storage.records)
+    ) {
+        const record =
+            storage.records[recordId];
+
+        if (
+            !record ||
+            record.category !==
+                SH_SETTINGS_SECURITY_CONFIG.storageCategory
+        ) {
+            continue;
+        }
+
+        try {
+            const data =
+                shDecryptStoredData(record);
+
+            if (
+                data &&
+                data.type ===
+                    "smart_hub_settings_security" &&
+                data.accountId === accountId
+            ) {
+                return {
+                    recordId,
+                    data
+                };
+            }
+        } catch (error) {
+            console.error(
+                `[SETTINGS SECURITY] Failed to read record ${recordId}:`,
+                error.message
+            );
+        }
+    }
+
+    return null;
+}
+
+// ------------------------------------------------------------
+// SAVE / UPDATE SETTINGS SECURITY
+// ------------------------------------------------------------
+
+async function shSaveSettingsSecurityRecord(
+    accountId,
+    code
+) {
+    const newData =
+        await shCreateSettingsSecurityRecord(
+            accountId,
+            code
+        );
+
+    const existing =
+        shFindSettingsSecurityRecord(
+            accountId
+        );
+
+    if (existing) {
+        shUpdateEncryptedRecord(
+            existing.recordId,
+            newData
+        );
+
+        return existing.recordId;
+    }
+
+    return shCreateStoredRecord(
+        SH_SETTINGS_SECURITY_CONFIG.storageCategory,
+        newData
+    );
+}
+
+// ------------------------------------------------------------
+// SET SETTINGS SECURITY CODE
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "POST",
+    "/api/settings/security-code",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const body =
+            await readRequestBody(req);
+
+        if (!body) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid request body."
+            });
+        }
+
+        let data;
+
+        try {
+            data = JSON.parse(body);
+        } catch (error) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid JSON."
+            });
+        }
+
+        const code =
+            typeof data.code === "string"
+                ? data.code
+                : "";
+
+        const validation =
+            shValidateSettingsSecurityCode(
+                code
+            );
+
+        if (!validation.valid) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: validation.error
+            });
+        }
+
+        try {
+            await shSaveSettingsSecurityRecord(
+                auth.session.accountId,
+                code
+            );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Settings security code saved securely.",
+                security: {
+                    hashing: "Argon2id",
+                    encryption: "AES-256-GCM",
+                    keyProtection: "RSA-3072",
+                    integrity: "SHA-384"
+                }
+            });
+        } catch (error) {
+            console.error(
+                "[SETTINGS SECURITY] Save error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "Settings security code could not be saved."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// VERIFY SETTINGS SECURITY CODE
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "POST",
+    "/api/settings/security-code/verify",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const accountId =
+            auth.session.accountId;
+
+        const attemptStatus =
+            shCheckSettingsSecurityAttempts(
+                accountId
+            );
+
+        if (!attemptStatus.allowed) {
+            return sendJSON(res, 429, {
+                success: false,
+                error:
+                    "Settings security access is temporarily locked.",
+                lockedUntil:
+                    attemptStatus.lockedUntil
+            });
+        }
+
+        const body =
+            await readRequestBody(req);
+
+        if (!body) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid request body."
+            });
+        }
+
+        let data;
+
+        try {
+            data = JSON.parse(body);
+        } catch (error) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid JSON."
+            });
+        }
+
+        const code =
+            typeof data.code === "string"
+                ? data.code
+                : "";
+
+        const record =
+            shFindSettingsSecurityRecord(
+                accountId
+            );
+
+        if (!record) {
+            return sendJSON(res, 404, {
+                success: false,
+                error:
+                    "Settings security code has not been configured."
+            });
+        }
+
+        const verified =
+            await shVerifySettingsSecurityCode(
+                record.data.codeHash,
+                code
+            );
+
+        if (!verified) {
+            const failure =
+                shRegisterSettingsSecurityFailure(
+                    accountId
+                );
+
+            return sendJSON(res, 401, {
+                success: false,
+                error:
+                    "Invalid settings security code.",
+                remainingAttempts:
+                    Math.max(
+                        0,
+                        SH_SETTINGS_SECURITY_CONFIG
+                            .maxAttempts -
+                            failure.attempts
+                    )
+            });
+        }
+
+        shClearSettingsSecurityFailures(
+            accountId
+        );
+
+        return sendJSON(res, 200, {
+            success: true,
+            settingsAccess: true,
+            message:
+                "Settings security code verified."
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// SETTINGS SECURITY STATUS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/settings/security-status",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const record =
+            shFindSettingsSecurityRecord(
+                auth.session.accountId
+            );
+
+        const attemptStatus =
+            shCheckSettingsSecurityAttempts(
+                auth.session.accountId
+            );
+
+        return sendJSON(res, 200, {
+            success: true,
+
+            configured:
+                !!record,
+
+            locked:
+                !attemptStatus.allowed,
+
+            lockedUntil:
+                attemptStatus.lockedUntil ||
+                null,
+
+            security: {
+                codeHash:
+                    "Argon2id",
+                storedData:
+                    "AES-256-GCM",
+                keyProtection:
+                    "RSA-3072",
+                integrity:
+                    "SHA-384"
+            }
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// PART 9 ARCHITECTURE
+// ------------------------------------------------------------
+
+const SH_SETTINGS_SECURITY_ARCHITECTURE =
+    Object.freeze({
+        backendProvider:
+            "Oracle Cloud Infrastructure",
+
+        backendServerCount: 1,
+
+        settingsSecurity: {
+            accessRequiresAuthentication: true,
+            securityCodeHash:
+                "Argon2id",
+            storedDataEncryption:
+                "AES-256-GCM",
+            keyProtection:
+                "RSA-3072",
+            integrity:
+                "SHA-384",
+            failedAttemptProtection:
+                true,
+            temporaryLockout:
+                true
+        },
+
+        searchEnginesExternal: true,
+
+        supabase: false,
+        cloudflare: false
+    });
+
+console.log(
+    "[SMART HUB] Part 9 — Settings Security & Access Control initialized."
+);
