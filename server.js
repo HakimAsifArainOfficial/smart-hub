@@ -9196,3 +9196,855 @@ const SH_APP_SETTINGS_ARCHITECTURE =
 console.log(
     "[SMART HUB] Part 11 — App Settings & Preferences Security initialized."
 );
+
+// ============================================================
+// SMART HUB — ORACLE OCI BACKEND SERVER
+// PART 12 — SEARCH HISTORY & SAVED DATA SECURITY
+// ============================================================
+
+const SH_SEARCH_DATA_CONFIG = Object.freeze({
+    searchHistoryCategory: "search_history",
+    savedLinksCategory: "saved_links",
+
+    encryption: "AES-256-GCM",
+    keyProtection: "RSA-3072",
+    integrity: "SHA-384",
+
+    maxHistoryItems: 200,
+    maxSavedLinks: 200,
+
+    maxQueryLength: 512,
+    maxTitleLength: 256,
+    maxUrlLength: 2048
+});
+
+// ------------------------------------------------------------
+// SEARCH DATA TEXT CLEANING
+// ------------------------------------------------------------
+
+function shCleanSearchText(value, maxLength) {
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    return value
+        .trim()
+        .slice(0, maxLength);
+}
+
+// ------------------------------------------------------------
+// SEARCH HISTORY VALIDATION
+// ------------------------------------------------------------
+
+function shValidateSearchHistoryItem(item) {
+    if (
+        !item ||
+        typeof item !== "object" ||
+        Array.isArray(item)
+    ) {
+        return false;
+    }
+
+    if (
+        typeof item.query !== "string" ||
+        item.query.trim().length === 0
+    ) {
+        return false;
+    }
+
+    if (
+        item.query.length >
+        SH_SEARCH_DATA_CONFIG.maxQueryLength
+    ) {
+        return false;
+    }
+
+    if (
+        item.engine !== undefined &&
+        typeof item.engine !== "string"
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+// ------------------------------------------------------------
+// SEARCH HISTORY PREPARATION
+// ------------------------------------------------------------
+
+function shPrepareSearchHistory(
+    accountId,
+    history
+) {
+    if (!Array.isArray(history)) {
+        throw new Error(
+            "Search history must be an array."
+        );
+    }
+
+    const limited =
+        history.slice(
+            -SH_SEARCH_DATA_CONFIG.maxHistoryItems
+        );
+
+    const items = [];
+
+    for (const item of limited) {
+        if (
+            !shValidateSearchHistoryItem(item)
+        ) {
+            continue;
+        }
+
+        items.push({
+            query:
+                shCleanSearchText(
+                    item.query,
+                    SH_SEARCH_DATA_CONFIG
+                        .maxQueryLength
+                ),
+
+            engine:
+                shCleanSearchText(
+                    item.engine || "",
+                    64
+                ),
+
+            searchedAt:
+                typeof item.searchedAt === "string"
+                    ? item.searchedAt
+                    : new Date().toISOString()
+        });
+    }
+
+    return {
+        type: "smart_hub_search_history",
+        version: 1,
+        accountId,
+        items,
+        updatedAt:
+            new Date().toISOString()
+    };
+}
+
+// ------------------------------------------------------------
+// FIND SEARCH HISTORY
+// ------------------------------------------------------------
+
+function shFindSearchHistory(accountId) {
+    const storage =
+        shReadStorageFile();
+
+    if (
+        !storage ||
+        !storage.records
+    ) {
+        return null;
+    }
+
+    for (
+        const recordId of
+        Object.keys(storage.records)
+    ) {
+        const record =
+            storage.records[recordId];
+
+        if (
+            !record ||
+            record.category !==
+                SH_SEARCH_DATA_CONFIG
+                    .searchHistoryCategory
+        ) {
+            continue;
+        }
+
+        try {
+            const data =
+                shDecryptStoredData(record);
+
+            if (
+                data &&
+                data.type ===
+                    "smart_hub_search_history" &&
+                data.accountId === accountId
+            ) {
+                return {
+                    recordId,
+                    data
+                };
+            }
+        } catch (error) {
+            console.error(
+                `[SEARCH HISTORY] Failed to decrypt ${recordId}:`,
+                error.message
+            );
+        }
+    }
+
+    return null;
+}
+
+// ------------------------------------------------------------
+// SAVE SEARCH HISTORY
+// ------------------------------------------------------------
+
+function shSaveSearchHistory(
+    accountId,
+    history
+) {
+    const prepared =
+        shPrepareSearchHistory(
+            accountId,
+            history
+        );
+
+    const existing =
+        shFindSearchHistory(
+            accountId
+        );
+
+    if (existing) {
+        shUpdateEncryptedRecord(
+            existing.recordId,
+            prepared
+        );
+
+        return existing.recordId;
+    }
+
+    return shCreateStoredRecord(
+        SH_SEARCH_DATA_CONFIG
+            .searchHistoryCategory,
+        prepared
+    );
+}
+
+// ------------------------------------------------------------
+// GET SEARCH HISTORY
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/search/history",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const history =
+            shFindSearchHistory(
+                auth.session.accountId
+            );
+
+        if (!history) {
+            return sendJSON(res, 200, {
+                success: true,
+                history: [],
+                stored: false
+            });
+        }
+
+        return sendJSON(res, 200, {
+            success: true,
+            history:
+                history.data.items || [],
+            stored: true
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// SAVE SEARCH HISTORY
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "PUT",
+    "/api/search/history",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const body =
+            await readRequestBody(req);
+
+        if (!body) {
+            return sendJSON(res, 400, {
+                success: false,
+                error:
+                    "Invalid request body."
+            });
+        }
+
+        let data;
+
+        try {
+            data = JSON.parse(body);
+        } catch (error) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid JSON."
+            });
+        }
+
+        try {
+            const recordId =
+                shSaveSearchHistory(
+                    auth.session.accountId,
+                    data.history
+                );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Search history saved securely.",
+                recordId,
+
+                security: {
+                    encryption:
+                        "AES-256-GCM",
+                    keyProtection:
+                        "RSA-3072",
+                    integrity:
+                        "SHA-384"
+                }
+            });
+        } catch (error) {
+            console.error(
+                "[SEARCH HISTORY] Save error:",
+                error.message
+            );
+
+            return sendJSON(res, 400, {
+                success: false,
+                error:
+                    "Search history could not be saved."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// DELETE SEARCH HISTORY
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "DELETE",
+    "/api/search/history",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const history =
+            shFindSearchHistory(
+                auth.session.accountId
+            );
+
+        if (!history) {
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Search history is already empty."
+            });
+        }
+
+        try {
+            shDeleteEncryptedRecord(
+                history.recordId
+            );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Search history deleted."
+            });
+        } catch (error) {
+            console.error(
+                "[SEARCH HISTORY] Delete error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "Search history could not be deleted."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// SAVED LINKS VALIDATION
+// ------------------------------------------------------------
+
+function shValidateSavedLink(item) {
+    if (
+        !item ||
+        typeof item !== "object" ||
+        Array.isArray(item)
+    ) {
+        return false;
+    }
+
+    if (
+        typeof item.url !== "string" ||
+        item.url.trim().length === 0
+    ) {
+        return false;
+    }
+
+    if (
+        item.url.length >
+        SH_SEARCH_DATA_CONFIG.maxUrlLength
+    ) {
+        return false;
+    }
+
+    try {
+        const parsed =
+            new URL(item.url);
+
+        if (
+            parsed.protocol !== "https:"
+        ) {
+            return false;
+        }
+    } catch (error) {
+        return false;
+    }
+
+    return true;
+}
+
+// ------------------------------------------------------------
+// SAVED LINKS PREPARATION
+// ------------------------------------------------------------
+
+function shPrepareSavedLinks(
+    accountId,
+    links
+) {
+    if (!Array.isArray(links)) {
+        throw new Error(
+            "Saved links must be an array."
+        );
+    }
+
+    const limited =
+        links.slice(
+            -SH_SEARCH_DATA_CONFIG.maxSavedLinks
+        );
+
+    const items = [];
+
+    for (const item of limited) {
+        if (
+            !shValidateSavedLink(item)
+        ) {
+            continue;
+        }
+
+        items.push({
+            title:
+                shCleanSearchText(
+                    item.title || "",
+                    SH_SEARCH_DATA_CONFIG
+                        .maxTitleLength
+                ),
+
+            url:
+                shCleanSearchText(
+                    item.url,
+                    SH_SEARCH_DATA_CONFIG
+                        .maxUrlLength
+                ),
+
+            savedAt:
+                typeof item.savedAt === "string"
+                    ? item.savedAt
+                    : new Date().toISOString()
+        });
+    }
+
+    return {
+        type: "smart_hub_saved_links",
+        version: 1,
+        accountId,
+        items,
+        updatedAt:
+            new Date().toISOString()
+    };
+}
+
+// ------------------------------------------------------------
+// FIND SAVED LINKS
+// ------------------------------------------------------------
+
+function shFindSavedLinks(accountId) {
+    const storage =
+        shReadStorageFile();
+
+    if (
+        !storage ||
+        !storage.records
+    ) {
+        return null;
+    }
+
+    for (
+        const recordId of
+        Object.keys(storage.records)
+    ) {
+        const record =
+            storage.records[recordId];
+
+        if (
+            !record ||
+            record.category !==
+                SH_SEARCH_DATA_CONFIG
+                    .savedLinksCategory
+        ) {
+            continue;
+        }
+
+        try {
+            const data =
+                shDecryptStoredData(record);
+
+            if (
+                data &&
+                data.type ===
+                    "smart_hub_saved_links" &&
+                data.accountId === accountId
+            ) {
+                return {
+                    recordId,
+                    data
+                };
+            }
+        } catch (error) {
+            console.error(
+                `[SAVED LINKS] Failed to decrypt ${recordId}:`,
+                error.message
+            );
+        }
+    }
+
+    return null;
+}
+
+// ------------------------------------------------------------
+// SAVE LINKS
+// ------------------------------------------------------------
+
+function shSaveSavedLinks(
+    accountId,
+    links
+) {
+    const prepared =
+        shPrepareSavedLinks(
+            accountId,
+            links
+        );
+
+    const existing =
+        shFindSavedLinks(
+            accountId
+        );
+
+    if (existing) {
+        shUpdateEncryptedRecord(
+            existing.recordId,
+            prepared
+        );
+
+        return existing.recordId;
+    }
+
+    return shCreateStoredRecord(
+        SH_SEARCH_DATA_CONFIG
+            .savedLinksCategory,
+        prepared
+    );
+}
+
+// ------------------------------------------------------------
+// GET SAVED LINKS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/links",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const links =
+            shFindSavedLinks(
+                auth.session.accountId
+            );
+
+        if (!links) {
+            return sendJSON(res, 200, {
+                success: true,
+                links: [],
+                stored: false
+            });
+        }
+
+        return sendJSON(res, 200, {
+            success: true,
+            links:
+                links.data.items || [],
+            stored: true
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// SAVE LINKS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "PUT",
+    "/api/links",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const body =
+            await readRequestBody(req);
+
+        if (!body) {
+            return sendJSON(res, 400, {
+                success: false,
+                error:
+                    "Invalid request body."
+            });
+        }
+
+        let data;
+
+        try {
+            data = JSON.parse(body);
+        } catch (error) {
+            return sendJSON(res, 400, {
+                success: false,
+                error: "Invalid JSON."
+            });
+        }
+
+        try {
+            const recordId =
+                shSaveSavedLinks(
+                    auth.session.accountId,
+                    data.links
+                );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Saved links stored securely.",
+                recordId,
+
+                security: {
+                    encryption:
+                        "AES-256-GCM",
+                    keyProtection:
+                        "RSA-3072",
+                    integrity:
+                        "SHA-384"
+                }
+            });
+        } catch (error) {
+            console.error(
+                "[SAVED LINKS] Save error:",
+                error.message
+            );
+
+            return sendJSON(res, 400, {
+                success: false,
+                error:
+                    "Saved links could not be saved."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// DELETE SAVED LINKS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "DELETE",
+    "/api/links",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        const links =
+            shFindSavedLinks(
+                auth.session.accountId
+            );
+
+        if (!links) {
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Saved links are already empty."
+            });
+        }
+
+        try {
+            shDeleteEncryptedRecord(
+                links.recordId
+            );
+
+            return sendJSON(res, 200, {
+                success: true,
+                message:
+                    "Saved links deleted."
+            });
+        } catch (error) {
+            console.error(
+                "[SAVED LINKS] Delete error:",
+                error.message
+            );
+
+            return sendJSON(res, 500, {
+                success: false,
+                error:
+                    "Saved links could not be deleted."
+            });
+        }
+    }
+);
+
+// ------------------------------------------------------------
+// SEARCH DATA SECURITY STATUS
+// ------------------------------------------------------------
+
+shRegisterRoute(
+    "GET",
+    "/api/search/security-status",
+    async (req, res) => {
+        const auth =
+            await shRequireAuthentication(
+                req,
+                res
+            );
+
+        if (!auth) {
+            return;
+        }
+
+        return sendJSON(res, 200, {
+            success: true,
+
+            backend:
+                "Oracle Cloud Infrastructure",
+
+            serverCount: 1,
+
+            searchDataSecurity: {
+                searchHistory:
+                    "AES-256-GCM",
+                savedLinks:
+                    "AES-256-GCM",
+                keyProtection:
+                    "RSA-3072",
+                integrity:
+                    "SHA-384",
+                accountIsolation:
+                    true,
+                authenticatedAccess:
+                    true
+            }
+        });
+    }
+);
+
+// ------------------------------------------------------------
+// PART 12 ARCHITECTURE
+// ------------------------------------------------------------
+
+const SH_SEARCH_DATA_ARCHITECTURE =
+    Object.freeze({
+        backendProvider:
+            "Oracle Cloud Infrastructure",
+
+        backendServerCount: 1,
+
+        searchHistory: {
+            encryptedAtRest:
+                "AES-256-GCM",
+            keyProtection:
+                "RSA-3072",
+            integrity:
+                "SHA-384",
+            accountIsolation:
+                true
+        },
+
+        savedLinks: {
+            encryptedAtRest:
+                "AES-256-GCM",
+            keyProtection:
+                "RSA-3072",
+            integrity:
+                "SHA-384",
+            accountIsolation:
+                true
+        },
+
+        searchEnginesExternal:
+            true,
+
+        supabase: false,
+        cloudflare: false
+    });
+
+console.log(
+    "[SMART HUB] Part 12 — Search History & Saved Data Security initialized."
+);
